@@ -70,10 +70,88 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _cmd_facility_add(args) -> int:
+    from pathlib import Path
+
+    from .core import registry
+    result = registry.add_facility(Path(args.zip), name=args.name, profile_id=args.profile)
+    print(f"[facility add] 시설 등록됨: {result['facility_id']}  ({result['name']})")
+    print(f"  프로파일: {result['profile_id']}")
+    print(f"  도면 {len(result['drawings'])}건:")
+    for d in result["drawings"]:
+        print(f"    - {d['kind']:9s} {d['filename']}  (지문 {d['sha256'][:12]}…)")
+    return 0
+
+
+def _cmd_inventory(args) -> int:
+    from .core import registry
+    from .core.config import raw_dir
+    from .ingest.inventory import inventory, print_report
+    fac = registry.get_facility(args.facility_id)
+    if not fac:
+        print(f"시설 없음: {args.facility_id}")
+        return 1
+    raw = raw_dir() / args.facility_id
+    for d in fac["drawings"]:
+        if args.dxf and args.dxf not in d["filename"]:
+            continue
+        path = raw / d["filename"]
+        if path.exists():
+            print_report(inventory(str(path)))
+    return 0
+
+
+def _cmd_profile_wizard(args) -> int:
+    import yaml
+
+    from .core import registry
+    from .core.config import raw_dir, repo_root
+    from .ingest.profile_wizard import build_draft
+    fac = registry.get_facility(args.facility_id)
+    if not fac:
+        print(f"시설 없음: {args.facility_id}")
+        return 1
+    raw = raw_dir() / args.facility_id
+    fp = next((raw / d["filename"] for d in fac["drawings"] if d["kind"] == "floorplan"), None)
+    pr = next((raw / d["filename"] for d in fac["drawings"] if d["kind"] == "pressure"), None)
+    if not fp:
+        print("평면도 도면이 없어 초안을 만들 수 없습니다.")
+        return 1
+    draft = build_draft(f"{args.facility_id}_draft", str(fp), str(pr) if pr else None)
+    out = repo_root() / "profiles" / f"_draft_{args.facility_id}.yaml"
+    out.write_text(yaml.safe_dump(draft, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    print(f"[profile wizard] 초안 생성: {out}")
+    print(f"  방 레이어 후보: {draft['floorplan']['room_layers']}")
+    print(f"  번호 패턴: {draft['floorplan']['room_no_regex']}")
+    print(f"  층: {draft['floors']}")
+    print(f"  장비 레이어 후보: {draft['equipment']['layers']}")
+    print("  ※ 초안입니다. 검토·수정 후 profiles/ 에 정식 배치하세요.")
+    return 0
+
+
+def _cmd_ingest(args) -> int:
+    from .core import run
+    r = run.ingest(args.facility_id)
+    print(f"[ingest] run_id={r['run_id']}")
+    print(f"  처리 도면: {r['drawings_processed']}")
+    print(f"  평면도 방 {r['n_floorplan_rooms']} / 차압도 방 {r['n_pressure_rooms']} "
+          f"→ 병합 {r['n_merged_rooms']}개 방을 DB에 적재")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    # 골격 단계: 모든 명령은 미구현 안내를 반환한다.
-    return _todo(f"{args.command} {getattr(args, 'sub', '') or ''}".strip())
+    sub = getattr(args, "sub", "") or ""
+    if args.command == "facility" and sub == "add":
+        return _cmd_facility_add(args)
+    if args.command == "inventory":
+        return _cmd_inventory(args)
+    if args.command == "profile" and sub == "wizard":
+        return _cmd_profile_wizard(args)
+    if args.command == "ingest":
+        return _cmd_ingest(args)
+    # 나머지는 아직 골격.
+    return _todo(f"{args.command} {sub}".strip())
 
 
 if __name__ == "__main__":

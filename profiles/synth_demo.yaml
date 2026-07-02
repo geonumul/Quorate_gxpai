@@ -1,0 +1,30 @@
+# synth_demo.yaml — 합성 가짜 신규 시설 프로파일 (T1.3.2)
+# 실제 시설과 레이어명·번호체계가 전혀 다르다. 이 파일만 새로 쓰고 코드는 0줄 수정.
+profile_id: synth_demo
+profile_version: "1"
+description: "온보딩 리허설용 합성 시설. 5자리 방번호 + 다른 레이어명."
+
+label_entity_types: [TEXT, MTEXT]
+
+floors:
+  "1": 1F
+  "2": 2F
+
+floorplan:
+  room_layers: [RMNUM, RMNAME]          # 실제(TEX/TMP_TXT/11)와 다름
+  room_no_regex: '^\((\d{5}(?:-\d+)?)\)$'   # 5자리
+  bare_no_regex: '^\d{5}(?:-\d+)?$'
+  max_match_dist_mm: 3000
+  name_above_max_mm: 2500
+  name_above_penalty: 1500
+  skip_names: [UP, DN]
+  title_attrib_tag: "도면명"
+  multiline_merge:
+    max_dy_mm: 800
+    max_dx_mm: 1200
+
+equipment:
+  layers: ["EQP"]
+
+grades:
+  status: pending_data

@@ -12,6 +12,8 @@
 master_rooms.json
 rooms.json
 pressure.json
+# wizard 가 생성하는 초안 (도구 산출물)
+/profiles/_draft_*.yaml
 
 # CAD/문서 바이너리 (fixture 합성 DXF 만 예외)
 *.dwg
