@@ -47,6 +47,23 @@ hvac:
 equipment:
   layers: ["장비"]                       # 평면도·HVAC 공통 장비 레이어 (인벤토리 확인됨)
 
+overview:                                # 설계개요 표 → facility 메타 (T1.2.2)
+  row_dy_mm: 300                         # 같은 행 판정 y 밴드
+  value_max_dx_mm: 12000                 # 키워드 오른쪽 값 탐색 상한
+  keywords:                              # 사전 항목만 추출 (자간 공백은 제거 후 매칭)
+    - 공사명
+    - 위치
+    - 대지면적
+    - 건축면적
+    - 연면적
+    - 건폐율
+    - 용적률
+    - 구조
+    - 규모
+    - 주용도
+    - 지역지구
+    - 용도지역
+
 grades:
   # hatch_color_to_grade: {}            # Grade DXF 미수령 - T1.2.4 스켈레톤, question 등록됨
   status: pending_data

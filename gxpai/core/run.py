@@ -16,6 +16,7 @@ from ..ingest.extractors.equipment import EquipmentExtractor
 from ..ingest.extractors.floorplan import FloorplanExtractor
 from ..ingest.extractors.grades import GradeExtractor
 from ..ingest.extractors.hvac import HvacExtractor
+from ..ingest.extractors.overview import OverviewExtractor
 from ..ingest.extractors.pressure import PressureExtractor
 from .config import load_profile, raw_dir
 from .db import connect
@@ -52,11 +53,13 @@ def ingest(facility_id: str) -> dict:
 
     fp_ex, pr_ex = FloorplanExtractor(), PressureExtractor()
     eq_ex, hv_ex, gr_ex = EquipmentExtractor(), HvacExtractor(), GradeExtractor()
+    ov_ex = OverviewExtractor()
     floor_rooms: list[dict] = []
     pres_rooms: list[dict] = []
     equipment: list[dict] = []
     ahus: list[dict] = []
-    counts = {"floorplan": 0, "pressure": 0, "hvac": 0,
+    overview: list[dict] = []
+    counts = {"floorplan": 0, "pressure": 0, "hvac": 0, "overview": 0,
               "ta_value": 0, "pressure_arrow": 0, "grade_zone": 0}
 
     for d in fac["drawings"]:
@@ -87,11 +90,17 @@ def ingest(facility_id: str) -> dict:
             for rec in hv_ex.extract(doc, profile):
                 ahus.append(rec.payload)
             counts["hvac"] += 1
+        elif d["kind"] == "overview":
+            doc = _read_dxf(str(path))
+            for rec in ov_ex.extract(doc, profile):
+                rec.payload["source_drawing_id"] = d["id"]
+                overview.append(rec.payload)
+            counts["overview"] += 1
 
     merged = _merge(floor_rooms, pres_rooms)
 
     run_id = f"run_{facility_id}_{int(time.time())}"
-    n_eq = _load(facility_id, run_id, profile_version, merged, equipment, ahus)
+    n_eq = _load(facility_id, run_id, profile_version, merged, equipment, ahus, overview)
     _seed_questions(facility_id)
 
     return {
@@ -102,6 +111,7 @@ def ingest(facility_id: str) -> dict:
         "n_merged_rooms": len(merged),
         "n_equipment_attributed": n_eq,
         "n_ahu": len(ahus),
+        "n_overview_items": len(overview),
     }
 
 
@@ -143,7 +153,7 @@ def _nearest_room_id(x, y, room_points, max_d=8000):
     return best
 
 
-def _load(facility_id, run_id, profile_version, rooms, equipment, ahus) -> int:
+def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview) -> int:
     with connect() as conn, conn.cursor() as cur:
         cur.execute(
             """INSERT INTO run (id, facility_id, pipeline_version, profile_version, status)
@@ -181,6 +191,15 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus) -> int:
                 """INSERT INTO ahu (run_id, facility_id, ahu_id, x, y, floor)
                    VALUES (%s,%s,%s,%s,%s,%s)""",
                 (run_id, facility_id, a["ahu_id"], a["x"], a["y"], a.get("floor")),
+            )
+
+        # 설계개요 표 항목 → facility_meta (T1.2.2)
+        for m in overview:
+            cur.execute(
+                """INSERT INTO facility_meta (facility_id, run_id, key, value, source_drawing_id)
+                   VALUES (%s,%s,%s,%s,%s)
+                   ON CONFLICT (facility_id, run_id, key) DO UPDATE SET value = EXCLUDED.value""",
+                (facility_id, run_id, m["key"], m["value"], m.get("source_drawing_id")),
             )
 
         cur.execute("UPDATE run SET status='done' WHERE id=%s", (run_id,))

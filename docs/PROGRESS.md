@@ -10,15 +10,15 @@
 - **완료**: T1.1.1 `facility add` - DXF 폴더/zip 등록, sha256 지문 + 종류 자동판별, facility/drawing 행 적재 (facility f_1ae3a266, 도면 7건).
 - **완료**: T1.1.2 `ingest` - floorplan/pressure 추출기 이식 + 병합 + room 적재. **Acceptance 통과: 번호방 111개(3F 51/4F 60) = master_rooms.json 기준 일치.** 무번호 공간 43.
   - 리스크 반영: R-A1(정규화)·R-A2(TEXT+MTEXT)·S-3(평면도 병합)·S-10(frozen 제외)·R-F1(정렬점)·R-E3(멱등).
-- **다음 첫 태스크(Stage 2 진입)**: S-1(화살표 방향 의미 확정 - `blocks` 정의 지오메트리 분석, 최우선) → T2.1.1(방 경계 3전략). Stage2 진입 게이트: R-F2(OCS 미러 3947건 WCS 변환) 필수. 검증 백로그는 docs/RISK_METHODOLOGY*.md.
-- **Stage 1 잔여 백로그**: T1.2.2(설계개요 표 복원).
+- **완료**: T1.2.2 설계개요 표 복원 - 키워드 앵커 + 행 그룹핑으로 대지/건축/연면적·건폐율·용적률·구조 등 9항목을 facility_meta 에 적재. **Stage 1(읽기) 전체 완료.**
+- **다음 첫 태스크(Stage 2 진입)**: S-1(화살표 방향 의미 확정 - `blocks` 정의 지오메트리 분석, 최우선) → T2.1.1(방 경계 3전략). Stage2 진입 게이트: R-F2(OCS 미러 3947건 WCS 변환) 필수. 검증 백로그는 docs/RISK_METHODOLOGY*.md. Stage 2 설계 근거는 docs/GENERATION_STRATEGY.md 및 ACC 논문(memory).
 
-## Stage 1 - Ingestion Platform  ← 사실상 완료 (T1.2.2 표복원만 백로그)
+## Stage 1 - Ingestion Platform  ← 완료
 - [x] T1.1.1  골격 + docker 스택 + facility add (지문+종류판별, facility/drawing 적재)
 - [x] T1.1.2  extractors 이식. **Acceptance 통과: room 111행(3F51/4F60) = master_rooms.json 일치**
 - [x] T1.1.3  profile wizard (인벤토리→초안, 내용 패턴 스코어링). CLI: `gxpai profile wizard`
 - [x] T1.2.1  HVAC 추출기 (AHU 20개 적재)
-- [ ] T1.2.2  설계개요 표 복원 - **백로그** (행 그룹핑 필요; 현재 미구현)
+- [x] T1.2.2  설계개요 표 복원 (키워드 앵커 + 행 그룹핑 → facility_meta 9항목)
 - [x] T1.2.3  장비 추출기 (418개 추출 / 376개 방 귀속, method=nearest)
 - [x] T1.2.4  Grade 추출기 스켈레톤 (pending_data) + question 시드(TA단위/Grade/화살표방향)
 - [x] T1.3.1  ONBOARDING 문서 (실제 CLI 반영)
