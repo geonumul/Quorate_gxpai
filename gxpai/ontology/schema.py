@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
-"""온톨로지 노드/엣지 타입 (버전 관리)
+"""온톨로지 스키마 v1 - 노드/엣지 타입 (버전 관리).
 
 로드맵: T2.2.1
-상태: skeleton (미구현). 구현 시 하드코딩 금지 - 레이어명/상수는 profiles/ YAML에서 로드.
+모든 노드에 facility_id 속성 = 다중 시설 격리 키.
+노드: Facility, Floor, Room, Ahu, Equipment
+엣지: (Facility)-[:HAS]->(Floor)-[:HAS]->(Room),
+      (Room)-[:ADJACENT_TO]->(Room)  (무방향; a<b 로 1회만)
+      (Room)-[:PRESSURE_OVER]->(Room) (Stage 2 방향 확정 후)
+      (Room)-[:SERVED_BY]->(Ahu), (Room)-[:CONTAINS]->(Equipment)
 """
+SCHEMA_VERSION = "1"
 
-
-def __todo__() -> None:
-    raise NotImplementedError("gxpai/ontology/schema.py - see docs/GUIDELINE.md (T2.2.1)")
+NODES = ["Facility", "Floor", "Room", "Ahu", "Equipment"]
+EDGES = ["HAS", "ADJACENT_TO", "PRESSURE_OVER", "SERVED_BY", "CONTAINS"]

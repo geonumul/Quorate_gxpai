@@ -23,3 +23,13 @@ def connect() -> psycopg.Connection:
         user=os.environ.get("POSTGRES_USER", "gxpai"),
         password=os.environ.get("POSTGRES_PASSWORD", "gxpai_dev"),
     )
+
+
+def neo4j_driver():
+    """.env 를 로드해 Neo4j 드라이버 반환 (Stage 2 온톨로지)."""
+    from neo4j import GraphDatabase
+    load_env()
+    uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+    user = os.environ.get("NEO4J_USER", "neo4j")
+    pw = os.environ.get("NEO4J_PASSWORD", "gxpai_dev_pw")
+    return GraphDatabase.driver(uri, auth=(user, pw))
