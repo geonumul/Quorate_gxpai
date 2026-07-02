@@ -59,6 +59,8 @@ def ingest(facility_id: str) -> dict:
     equipment: list[dict] = []
     ahus: list[dict] = []
     overview: list[dict] = []
+    arrows: list[dict] = []
+    ta_values: list[dict] = []
     counts = {"floorplan": 0, "pressure": 0, "hvac": 0, "overview": 0,
               "ta_value": 0, "pressure_arrow": 0, "grade_zone": 0}
 
@@ -82,8 +84,12 @@ def ingest(facility_id: str) -> dict:
                 if rec.kind == "pressure_room":
                     rec.payload["source_drawing_id"] = d["id"]
                     pres_rooms.append(rec.payload)
-                elif rec.kind in counts:
-                    counts[rec.kind] += 1
+                elif rec.kind == "ta_value":
+                    ta_values.append(rec.payload)
+                    counts["ta_value"] += 1
+                elif rec.kind == "pressure_arrow":
+                    arrows.append(rec.payload)
+                    counts["pressure_arrow"] += 1
             counts["pressure"] += 1
         elif d["kind"] == "hvac":
             doc = _read_dxf(str(path))
@@ -100,7 +106,8 @@ def ingest(facility_id: str) -> dict:
     merged = _merge(floor_rooms, pres_rooms)
 
     run_id = f"run_{facility_id}_{int(time.time())}"
-    n_eq = _load(facility_id, run_id, profile_version, merged, equipment, ahus, overview)
+    n_eq = _load(facility_id, run_id, profile_version, merged, equipment, ahus,
+                 overview, arrows, ta_values)
     _seed_questions(facility_id)
 
     return {
@@ -112,6 +119,8 @@ def ingest(facility_id: str) -> dict:
         "n_equipment_attributed": n_eq,
         "n_ahu": len(ahus),
         "n_overview_items": len(overview),
+        "n_pressure_arrows": len(arrows),
+        "n_ta_values": len(ta_values),
     }
 
 
@@ -153,7 +162,8 @@ def _nearest_room_id(x, y, room_points, max_d=8000):
     return best
 
 
-def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview) -> int:
+def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview,
+          arrows, ta_values) -> int:
     with connect() as conn, conn.cursor() as cur:
         cur.execute(
             """INSERT INTO run (id, facility_id, pipeline_version, profile_version, status)
@@ -164,11 +174,12 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
         room_points = []  # (room_id, plan_x, plan_y) - 장비 귀속용
         for r in rooms:
             cur.execute(
-                """INSERT INTO room (facility_id, run_id, room_no, name, floor, sheet,
-                                     plan_x, plan_y, source_drawing_id, review_status)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'unreviewed') RETURNING id""",
-                (facility_id, run_id, r.get("room_no"), r.get("name"), r.get("floor"),
-                 r.get("sheet"), r.get("plan_x"), r.get("plan_y"),
+                """INSERT INTO room (facility_id, run_id, room_no, name, pressure_name,
+                                     floor, sheet, plan_x, plan_y, source_drawing_id,
+                                     review_status)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'unreviewed') RETURNING id""",
+                (facility_id, run_id, r.get("room_no"), r.get("name"), r.get("pressure_name"),
+                 r.get("floor"), r.get("sheet"), r.get("plan_x"), r.get("plan_y"),
                  r.get("source_drawing_id")),
             )
             rid = cur.fetchone()[0]
@@ -200,6 +211,24 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
                    VALUES (%s,%s,%s,%s,%s)
                    ON CONFLICT (facility_id, run_id, key) DO UPDATE SET value = EXCLUDED.value""",
                 (facility_id, run_id, m["key"], m["value"], m.get("source_drawing_id")),
+            )
+
+        # 차압 화살표 → pressure_relation 에 원시 보관 (방 미귀속, approx=true).
+        # 방향 의미 확정(S-1)·방 귀속은 Stage 2 에서 채운다.
+        for a in arrows:
+            cur.execute(
+                """INSERT INTO pressure_relation
+                     (run_id, room_high, room_low, evidence_x, evidence_y, rotation, approx)
+                   VALUES (%s, NULL, NULL, %s, %s, %s, true)""",
+                (run_id, a["x"], a["y"], a["rotation_deg"]),
+            )
+
+        # TA 수치 → ta_value (단위 미확정, 어떤 규칙도 참조 금지 R-D2)
+        for t in ta_values:
+            cur.execute(
+                """INSERT INTO ta_value (run_id, facility_id, x, y, value_raw, unit)
+                   VALUES (%s,%s,%s,%s,%s,%s)""",
+                (run_id, facility_id, t["x"], t["y"], t["value_raw"], t.get("unit")),
             )
 
         cur.execute("UPDATE run SET status='done' WHERE id=%s", (run_id,))

@@ -1,10 +1,72 @@
 # -*- coding: utf-8 -*-
-"""규칙 로드 → checks 동적 실행 → violation 적재
+"""규칙 로드 → checks 동적 실행 → violation 적재.
 
 로드맵: T2.3.2 (필수 납품 코어)
-상태: skeleton (미구현). 구현 시 하드코딩 금지 - 레이어명/상수는 profiles/ YAML에서 로드.
+설계(ACC 논문 반영): 규칙은 데이터(rules/*.yaml), 실행은 결정론적 코드(checks/<rule_id>.py).
+LLM 은 규칙 '해석/초안'에만 쓰고 실행은 코드가 한다(N2/C6: LLM-RAG 단독 수치추론 한계).
+각 check 모듈은 run(cur, run_id, facility_id, rule) -> list[dict] 를 제공한다.
+반환 dict: {severity, rooms(list), message, evidence(dict)}.
 """
+from __future__ import annotations
+
+import importlib
+from pathlib import Path
+
+import yaml
+from psycopg.types.json import Json
+
+from ..core.db import connect
 
 
-def __todo__() -> None:
-    raise NotImplementedError("gxpai/compliance/engine.py - see docs/GUIDELINE.md (T2.3.2 (필수 납품 코어))")
+def _load_ruleset(ruleset: str) -> dict:
+    root = Path(__file__).resolve().parents[2]
+    path = root / "rules" / f"{ruleset}.yaml"
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _latest_run(cur, facility_id: str) -> str | None:
+    cur.execute("SELECT id FROM run WHERE facility_id=%s ORDER BY started_at DESC LIMIT 1",
+                (facility_id,))
+    row = cur.fetchone()
+    return row[0] if row else None
+
+
+def validate(facility_id: str, ruleset: str = "gmp_osd_v1", run_id: str | None = None) -> dict:
+    """활성 규칙을 실행해 violation 테이블에 적재하고 요약을 반환."""
+    rs = _load_ruleset(ruleset)
+    summary = {"ruleset": ruleset, "run_id": run_id, "by_rule": {}, "total": 0, "skipped": []}
+
+    with connect() as conn, conn.cursor() as cur:
+        rid = run_id or _latest_run(cur, facility_id)
+        if not rid:
+            raise ValueError(f"실행(run)이 없습니다: {facility_id}. 먼저 ingest 하세요.")
+        summary["run_id"] = rid
+
+        # 멱등: 이 run 의 기존 violation 제거 후 재적재
+        cur.execute("DELETE FROM violation WHERE run_id=%s", (rid,))
+
+        for rule in rs.get("rules", []):
+            rid_name = rule["id"]
+            module_name = rid_name.lower().replace("-", "_")
+            try:
+                mod = importlib.import_module(f"gxpai.compliance.checks.{module_name}")
+            except ModuleNotFoundError:
+                summary["skipped"].append(f"{rid_name}(미구현)")
+                continue
+            if not hasattr(mod, "run"):
+                summary["skipped"].append(f"{rid_name}(run 없음)")
+                continue
+            found = mod.run(cur, rid, facility_id, rule) or []
+            for v in found:
+                cur.execute(
+                    """INSERT INTO violation (run_id, rule_id, severity, rooms, message, evidence, status)
+                       VALUES (%s,%s,%s,%s,%s,%s,'open')""",
+                    (rid, rid_name, v.get("severity", rule.get("severity", "minor")),
+                     Json(v.get("rooms", [])), v.get("message", ""),
+                     Json(v.get("evidence", {}))),
+                )
+            summary["by_rule"][rid_name] = len(found)
+            summary["total"] += len(found)
+
+        conn.commit()
+    return summary
