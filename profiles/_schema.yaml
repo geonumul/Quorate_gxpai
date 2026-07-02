@@ -1,4 +1,4 @@
-# _schema.yaml — 프로파일 자체의 스키마 (CI에서 프로파일 YAML 검증용)
+# _schema.yaml - 프로파일 자체의 스키마 (CI에서 프로파일 YAML 검증용)
 # 프로파일 = 시설군별 레이어/라벨/상수. 코드가 아니라 데이터다.
 $schema: "http://json-schema.org/draft-07/schema#"
 type: object

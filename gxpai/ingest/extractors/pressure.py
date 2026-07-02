@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""차압도 추출기 — 방번호·이름, TA 수치, 차압 화살표(rotation).
+"""차압도 추출기 - 방번호·이름, TA 수치, 차압 화살표(rotation).
 
 로드맵: T1.1.2 (v0.1 extract_pressure 이식)
 리스크 반영: R-A1/A2/S-10 (dxftext 경유), S-3 (여러 줄 이름 병합).
@@ -68,7 +68,7 @@ class PressureExtractor(BaseExtractor):
                 },
             ))
 
-        # TA 수치 (단위 미확정 — raw 로만)
+        # TA 수치 (단위 미확정 - raw 로만)
         for x, y, t, _h in iter_label_texts(doc, [pr["ta_layer"]], entity_types):
             if re.fullmatch(r"\d+(?:\.\d+)?", t):
                 records.append(Record(kind="ta_value", payload={

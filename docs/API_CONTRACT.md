@@ -1,4 +1,4 @@
-# API Contract (선제 문서화 — Stage 5)
+# API Contract (선제 문서화 - Stage 5)
 
 Web/전자서명/대시보드는 타 팀 스코프. 우리는 JSON 스키마를 선제 문서화해 협업 주도권을 갖는다.
 FastAPI는 cli.py가 부르는 core 함수를 1:1로 래핑만 하므로 아래 매핑은 CLI 계약(B.3)과 동형이다.

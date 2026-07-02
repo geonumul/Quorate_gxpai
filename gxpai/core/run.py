@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Run — 파이프라인 1회 실행 단위. 도면 추출 → 병합 → room/equipment/ahu 적재.
+"""Run - 파이프라인 1회 실행 단위. 도면 추출 → 병합 → room/equipment/ahu 적재.
 
 로드맵: S1.1(재현성) + T1.1.2(방/차압) + T1.2.1(AHU) + T1.2.3(장비) + T1.2.4(Grade 스켈레톤)
 멱등(R-E3): run 단위로 적재. run_id 는 실행마다 발급되어 이력이 쌓인다.
@@ -151,7 +151,7 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus) -> int:
             (run_id, facility_id, PIPELINE_VERSION, profile_version),
         )
         cur.execute("DELETE FROM room WHERE run_id=%s", (run_id,))
-        room_points = []  # (room_id, plan_x, plan_y) — 장비 귀속용
+        room_points = []  # (room_id, plan_x, plan_y) - 장비 귀속용
         for r in rooms:
             cur.execute(
                 """INSERT INTO room (facility_id, run_id, room_no, name, floor, sheet,

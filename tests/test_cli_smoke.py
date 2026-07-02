@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""CLI 골격 스모크 테스트 — 파서가 명령을 인식하는지만 확인 (구현 전)."""
+"""CLI 골격 스모크 테스트 - 파서가 명령을 인식하는지만 확인 (구현 전)."""
 import pytest
 
 from gxpai.cli import build_parser

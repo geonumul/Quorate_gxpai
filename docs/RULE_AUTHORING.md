@@ -8,7 +8,7 @@
   severity: critical      # critical | major | minor
   title: "..."
   desc: "..."
-  ref: "별표17 / PIC-S Annex ... (검수대기)"   # GMP 근거 — 컨설턴트 검수 대상 표기 필수
+  ref: "별표17 / PIC-S Annex ... (검수대기)"   # GMP 근거 - 컨설턴트 검수 대상 표기 필수
   status: draft           # draft | active
 ```
 

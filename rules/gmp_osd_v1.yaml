@@ -1,4 +1,4 @@
-# gmp_osd_v1.yaml — GMP OSD violations 규칙 v1 (T2.3.1)
+# gmp_osd_v1.yaml - GMP OSD violations 규칙 v1 (T2.3.1)
 # 규칙 = 데이터. 코드 배포 없이 규칙 추가 가능. 각 규칙 근거는 rules/refs/ 에 별도 메모.
 # ※ GMP 근거 조항은 컨설턴트 검수 대상 (아직 미검수).
 version: "1"

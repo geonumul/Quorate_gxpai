@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """합성 미니 시설 DXF 생성기 (T1.3.2 온보딩 리허설용).
 
-실제 시설과 '다른 레이어명 + 5자리 방번호'를 쓴다 — 프로파일만 바꿔서
+실제 시설과 '다른 레이어명 + 5자리 방번호'를 쓴다 - 프로파일만 바꿔서
 코드 수정 0줄로 처리되는지 검증하기 위함. 아래 함정을 일부러 심는다:
   - 방이름을 가운데 정렬(MIDDLE_CENTER) 로 배치 → R-F1(정렬점) 검증
   - 두 줄로 쪼갠 방이름 → S-3(여러 줄 병합) 검증
@@ -51,7 +51,7 @@ def build(out_path: Path) -> Path:
     msp.add_text("기구보관실", dxfattribs={"layer": "RMNAME", "height": 300}) \
         .set_placement((30000, 800), align=TextEntityAlignment.MIDDLE_CENTER)
 
-    # 유령 방(S-10): 동결 레이어 — 추출되면 안 됨
+    # 유령 방(S-10): 동결 레이어 - 추출되면 안 됨
     msp.add_text("(19999)", dxfattribs={"layer": "OLD_GHOST", "height": 300}).set_placement((99000, 0))
     msp.add_text("철거된방", dxfattribs={"layer": "OLD_GHOST", "height": 300}).set_placement((99000, 800))
 

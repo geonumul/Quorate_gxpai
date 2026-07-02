@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""gxpai — 단일 진입점 CLI (Stage 5 API의 전신).
+"""gxpai - 단일 진입점 CLI (Stage 5 API의 전신).
 
 모든 기능은 CLI로 노출된다. cli.py는 core 함수를 얇게 감싸기만 하며,
 그래야 나중에 FastAPI가 껍데기만 추가해 동일 함수를 호출할 수 있다 (docs/API_CONTRACT.md).
