@@ -1,62 +1,106 @@
 # GXPAI Engine
 
-GMP(의약품 제조·품질관리) 시설 도면을 자동으로 구조화·검증·생성하는 엔진.
-DXF 도면 → 정규화 저장소 → 지식 그래프(온톨로지) → 규칙 기반 violations 검증 → 레퍼런스 기반 배치 생성.
+**의약품 공장 설계 도면을 컴퓨터가 자동으로 읽고 → 규정 위반을 찾아내고 → 새 배치안까지 만들어 주는 엔진입니다.**
 
-**다중 시설 확장을 전제로 설계**: 데이터가 1건이어도 N건 구조로 만든다. 신규 시설은
-코드 수정 없이 프로파일 YAML 추가만으로 처리된다.
+의약품을 만드는 공장(GMP 시설 — GMP는 "의약품을 안전하게 만들기 위한 제조·품질관리 기준")은
+방마다 공기 청정도·기압·동선 규정이 매우 까다롭습니다. 지금은 사람이 도면을 일일이 검토하는데,
+이 엔진은 그 과정을 자동화합니다.
 
-## 파이프라인 (Stage)
-| Stage | 이름 | 내용 |
+> 쉽게 비유하면 — **도면을 읽을 줄 알고, 규정 위반을 짚어내며, 더 나은 도면을 그려 주는
+> "디지털 설계 검토 전문가"** 를 만드는 프로젝트입니다.
+
+---
+
+## 무엇을 하나 (5단계)
+
+| 단계 | 이름 | 쉬운 설명 |
 |---|---|---|
-| 1 | Ingestion | N개 시설 DXF → 정규화 저장소 (프로파일 기반 추출) |
-| 2 | Compliance | 온톨로지 + violations 규칙 엔진 + HTML 리포트 **(필수 납품)** |
-| 3 | Generation | 레퍼런스 기반 CSP 배치 + DXF 출력 |
-| 4 | Intelligence | LLM 파서, RAG, 수정이력 학습 루프 |
-| 5 | Service | API 서버 (CLI 계약을 그대로 래핑) |
+| **1** | 읽기 (Ingestion) | 도면 파일에서 방·기압·장비 정보를 뽑아 데이터로 정리 |
+| **2** | 검사 (Compliance) | 그 데이터가 규정을 어겼는지 자동으로 찾아 리포트로 출력 **(이번 계약의 핵심 납품물)** |
+| **3** | 생성 (Generation) | 요구조건을 주면 규정을 지키는 새 배치안을 자동 생성 |
+| **4** | 지능화 (Intelligence) | 요구서 문서를 AI가 읽어 입력으로 변환, 과거 수정이력 학습 |
+| **5** | 서비스 (Service) | 위 기능들을 웹 API로 제공 (2단계 사업) |
 
-## 아키텍처
-```
-zip → [ingest] → PostgreSQL(정형) ─┐
-                                    ├→ [ontology] → Neo4j(그래프) → [compliance] → violations → [render] → HTML/SVG 리포트
-      profiles/*.yaml (시설 파라미터)┘                                                            → [generate] → CSP → DXF
-```
-- **정형 데이터**: PostgreSQL (pgvector) · **그래프**: Neo4j · **파생물**: `artifacts/{facility_id}/{run_id}/`
-- **규칙·프로파일은 데이터** (`rules/`, `profiles/`) — 코드 배포 없이 확장
-- 상세: [docs/GUIDELINE.md](docs/GUIDELINE.md)
+**설계 원칙 — "공장 하나가 아니라 여러 공장에 그대로":** 새 공장 도면이 와도 프로그램 코드는
+한 줄도 안 고치고, **설정 파일(프로파일)만 새로 써서** 처리되도록 만들었습니다.
+(*프로파일 = 그 공장 도면을 어떻게 읽어야 하는지 적어둔 시설별 설정서*)
 
-## 빠른 시작 (개발)
+---
+
+## 지금 상태
+
+- ✅ **1단계(읽기) 완료** — 실제 공장 도면에서 방 111개·장비 418개·공조기 20개를 뽑아 저장 확인.
+  전혀 다른 가짜 공장도 코드 수정 없이 처리되는 것을 시험으로 통과.
+- ⬜ 2단계(검사)부터는 진행 예정. 자세한 진척: [docs/PROGRESS.md](docs/PROGRESS.md)
+
+---
+
+## 어떻게 동작하나
+
+```
+도면(zip/DXF) ──▶ [읽기] ──▶ 표 형태 창고(PostgreSQL) ──┐
+                                                        ├──▶ 관계 그물망(Neo4j) ──▶ [검사] ──▶ 위반 리포트(HTML/SVG)
+   프로파일(시설별 설정) ─────────────────────────────┘                          └──▶ [생성] ──▶ 새 도면(DXF)
+```
+
+- **DXF** — CAD 도면의 "다른 프로그램도 읽을 수 있게 풀어쓴" 파일 형식. (원본 DWG는 AutoCAD 전용이라 DXF로 변환해 사용)
+- **PostgreSQL** — 정보를 표(엑셀 시트처럼) 형태로 저장하는 데이터베이스. 방·도면 목록을 담음.
+- **Neo4j** — 정보를 "관계 그물망"으로 저장하는 데이터베이스. "A방이 B방과 붙어있다", "기압이 A→B로 흐른다" 같은 연결을 다룸.
+- **규칙·프로파일은 데이터** (`rules/`, `profiles/` 폴더의 설정 파일) — 코드 배포 없이 파일만 추가해 새 규칙·새 시설에 대응.
+- 전체 설계 문서: [docs/GUIDELINE.md](docs/GUIDELINE.md)
+
+---
+
+## 개발자용 빠른 시작
+
 ```bash
-# 1) 인프라 기동 (PostgreSQL + Neo4j)
+# 1) 데이터베이스 두 개 켜기 (도커 필요)
 cp .env.example .env
-docker compose up -d
+docker compose up -d          # PostgreSQL + Neo4j 기동
 
-# 2) 엔진 설치
-python -m venv .venv && . .venv/Scripts/activate   # Windows
+# 2) 엔진 설치 (파이썬 3.11+)
+python -m venv .venv
+. .venv/Scripts/activate       # Windows (macOS/Linux: source .venv/bin/activate)
 pip install -e ".[dev]"
 
-# 3) CLI 확인
-gxpai --version
+# 3) 확인
 gxpai --help
-
-# 4) 품질 게이트
-ruff check .
-pytest
+pytest                         # 테스트 실행
 ```
 
-## CLI (전체 기능 진입점)
+### 주요 명령어
+
 ```bash
-gxpai facility add <zip> --name "..." --profile osd_hs_2025
-gxpai inventory <facility_id>
-gxpai profile wizard <facility_id>
-gxpai run all <facility_id>          # ingest → graph → validate → report
+# 도면 등록 (파일 접수 + 위·변조 확인용 지문 기록)
+gxpai facility add <폴더또는zip> --name "공장이름" --profile osd_hs_2025
+
+gxpai inventory <시설ID>        # 도면 속 레이어·글자·블록 통계 보기
+gxpai profile wizard <시설ID>   # 새 도면을 훑어 설정서 초안 자동 생성
+gxpai ingest <시설ID>           # 방·장비·기압 정보를 뽑아 창고에 저장
 ```
+> `facility add` · `inventory` · `profile wizard` · `ingest` 는 현재 동작합니다.
+> `validate`(검사) · `report`(리포트) · `generate`(생성) 는 2·3단계에서 구현 예정입니다.
 
-## 저장소 규약
-- **고객 원본 도면은 절대 커밋 금지** (`.gitignore`: `raw/`, `artifacts/`, `*.dxf/*.dwg/*.zip`). fixture는 합성 DXF만.
-- **원본 불변**: 입력 DXF는 수정하지 않는다. 모든 산출물은 재생성 가능한 파생물.
-- **재현성**: 산출물에 `pipeline_version`·`profile_version`·`source_hash` 스탬프.
-- DB 스키마 변경은 `db/migrations/NNN_*.sql` 로만.
+---
 
-## 상태
-초기 골격(skeleton). 진행 상황은 [docs/PROGRESS.md](docs/PROGRESS.md).
+## 이 저장소의 규칙
+
+- 🔒 **고객 원본 도면은 절대 커밋(업로드) 금지.** `raw/`·`artifacts/`·`*.dxf`·`*.dwg`·`*.zip` 은
+  `.gitignore` 로 차단. 공개용 예제는 **합성(가짜) 도면**만 사용.
+- **원본은 손대지 않음** — 입력 도면은 절대 수정하지 않고, 모든 결과물은 다시 만들 수 있는 파생물.
+- **재현성** — 결과물마다 코드 버전·설정 버전·원본 지문을 새겨, 같은 입력이면 항상 같은 결과.
+- **데이터베이스 구조 변경은 반드시 마이그레이션 파일**(`db/migrations/NNN_*.sql`)로만.
+
+---
+
+## 폴더 구조 (요약)
+
+```
+gxpai/          엔진 코드 (읽기·검사·생성 각 모듈)
+profiles/       시설별 설정서 (도면 읽는 규칙)
+rules/          규정 위반 검사 규칙
+db/migrations/  데이터베이스 구조 정의
+docs/           설계·진행·검증·생성전략 문서
+tests/          테스트 + 합성 예제 도면
+legacy/         초기 프로토타입 코드 (참고용)
+```

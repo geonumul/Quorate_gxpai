@@ -1,20 +1,26 @@
-# legacy/v0.1 — 초기 플랫 스크립트 (이식 대상, 실행용 아님)
+# legacy/v0.1 — 초기 프로토타입 (참고용, 실행하지 마세요)
 
-내용고형제 도면에서 방/차압 정보를 추출한 최초 PoC. **T1.1.2에서 `gxpai/ingest/extractors/`
-플러그인으로 이식**되며, 하드코딩 상수(레이어명·거리)는 `profiles/osd_hs_2025.yaml`로 이관 완료.
+이 폴더는 프로젝트 **맨 처음에 급하게 만든 시제품 코드**입니다. 지금은 정식 엔진(`gxpai/`)으로
+옮겨졌고, 여기 코드는 "무엇을 어떻게 뽑았는지" 확인하는 **참고 자료**로만 남겨둡니다.
 
-| 스크립트 | → 이식 위치 |
-|---|---|
-| `extract_rooms.py`    | `gxpai/ingest/extractors/floorplan.py` |
-| `extract_pressure.py` | `gxpai/ingest/extractors/pressure.py` |
-| `merge_dataset.py`    | `gxpai/core/run.py` (병합 단계) |
+## 무슨 코드인가
+의약품 공장(내용고형제) 도면에서 방과 기압 정보를 뽑아 정리하던 최초 스크립트 3개입니다.
 
-**회귀 기준**: 원래 산출물 `master_rooms.json` (111 rooms, 이름불일치 4건)은 실 방이름을
-포함해 커밋하지 않는다(.gitignore). 이식 후 DB `room` 테이블이 이 기준과 111행 일치해야 한다.
+| 스크립트 | 하는 일 | 지금은 어디로 옮겨졌나 |
+|---|---|---|
+| `extract_rooms.py`    | 평면도에서 방 번호·이름·위치 뽑기 | `gxpai/ingest/extractors/floorplan.py` |
+| `extract_pressure.py` | 차압 도면에서 기압·화살표 뽑기 | `gxpai/ingest/extractors/pressure.py` |
+| `merge_dataset.py`    | 위 둘을 방 번호로 합치기 | `gxpai/core/run.py` |
 
-원본 실행 방식(참고):
-```bash
-python extract_rooms.py "<평면도.dxf>" -o rooms.json
-python extract_pressure.py "<PRESSURIZATION.dxf>" -o pressure.json
-python merge_dataset.py rooms.json pressure.json -o master_rooms.json
-```
+## 왜 이걸 남겨두나 (회귀 기준)
+이 시제품이 뽑은 결과가 **방 111개**(3층 51개 / 4층 60개)였습니다. 정식 엔진으로 옮긴 뒤에도
+**같은 111개가 나와야** 제대로 옮겨진 것입니다. 그래서 이 숫자를 "정답지(기준값)"로 씁니다.
+코드를 고칠 때마다 이 기준이 유지되는지 확인합니다.
+
+> ⚠️ 시제품의 원래 출력 파일(`master_rooms.json` 등)은 **실제 방 이름이 들어 있어**
+> 고객 식별이 가능하므로 저장소에 올리지 않습니다(`.gitignore` 처리).
+
+## 하드코딩 → 설정으로 이관
+시제품은 레이어 이름("TEX" 등)과 거리 값이 코드에 박혀 있었습니다(그 공장 전용).
+정식 엔진에서는 이 값들을 전부 설정 파일(`profiles/osd_hs_2025.yaml`)로 옮겨,
+**다른 공장도 코드 수정 없이** 처리되게 만들었습니다.
