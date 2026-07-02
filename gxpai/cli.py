@@ -129,6 +129,18 @@ def _cmd_profile_wizard(args) -> int:
     return 0
 
 
+def _cmd_validate(args) -> int:
+    from .compliance import engine
+    r = engine.validate(args.facility_id, ruleset=args.rules)
+    print(f"[validate] run_id={r['run_id']} ruleset={r['ruleset']}")
+    print(f"  위반 총 {r['total']}건")
+    for rule_id, n in r["by_rule"].items():
+        print(f"    {rule_id}: {n}")
+    if r["skipped"]:
+        print(f"  건너뜀(미구현): {', '.join(r['skipped'])}")
+    return 0
+
+
 def _cmd_ingest(args) -> int:
     from .core import run
     r = run.ingest(args.facility_id)
@@ -150,6 +162,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_profile_wizard(args)
     if args.command == "ingest":
         return _cmd_ingest(args)
+    if args.command == "validate":
+        return _cmd_validate(args)
     # 나머지는 아직 골격.
     return _todo(f"{args.command} {sub}".strip())
 
