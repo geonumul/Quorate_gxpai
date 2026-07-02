@@ -129,6 +129,13 @@ def _cmd_profile_wizard(args) -> int:
     return 0
 
 
+def _cmd_report(args) -> int:
+    from .render import report
+    path = report.generate(args.facility_id)
+    print(f"[report] 생성: {path}")
+    return 0
+
+
 def _cmd_validate(args) -> int:
     from .compliance import engine
     r = engine.validate(args.facility_id, ruleset=args.rules)
@@ -164,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_ingest(args)
     if args.command == "validate":
         return _cmd_validate(args)
+    if args.command == "report":
+        return _cmd_report(args)
     # 나머지는 아직 골격.
     return _todo(f"{args.command} {sub}".strip())
 

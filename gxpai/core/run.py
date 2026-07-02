@@ -110,6 +110,10 @@ def ingest(facility_id: str) -> dict:
                  overview, arrows, ta_values)
     _seed_questions(facility_id)
 
+    # 인접 근사 (최근접 k, 경계 미확보 상태의 폴백)
+    from ..geometry import adjacency
+    n_adj = adjacency.build(run_id)
+
     return {
         "run_id": run_id,
         "drawings_processed": counts,
@@ -121,6 +125,7 @@ def ingest(facility_id: str) -> dict:
         "n_overview_items": len(overview),
         "n_pressure_arrows": len(arrows),
         "n_ta_values": len(ta_values),
+        "n_adjacency": n_adj,
     }
 
 
