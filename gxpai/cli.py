@@ -1,0 +1,80 @@
+# -*- coding: utf-8 -*-
+"""gxpai — 단일 진입점 CLI (Stage 5 API의 전신).
+
+모든 기능은 CLI로 노출된다. cli.py는 core 함수를 얇게 감싸기만 하며,
+그래야 나중에 FastAPI가 껍데기만 추가해 동일 함수를 호출할 수 있다 (docs/API_CONTRACT.md).
+
+명령 계약(B.3):
+  gxpai facility add <zip> --name ... --profile ...
+  gxpai inventory <facility_id> [--dxf <name>]
+  gxpai profile wizard <facility_id>
+  gxpai ingest <facility_id>
+  gxpai graph build <facility_id>
+  gxpai validate <facility_id> --rules gmp_osd_v1
+  gxpai report <facility_id>
+  gxpai generate --spec spec.yaml --refs <fid1,fid2>
+  gxpai export dxf <run_id>
+  gxpai run all <facility_id>
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+
+__version__ = "0.1.0"
+
+
+def _todo(name: str) -> int:
+    print(f"[gxpai] '{name}' 은 아직 skeleton 입니다. docs/PROGRESS.md 참조.", file=sys.stderr)
+    return 2
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="gxpai", description="GXPAI 도면 자동화 엔진")
+    p.add_argument("--version", action="version", version=f"gxpai {__version__}")
+    sub = p.add_subparsers(dest="command", required=True)
+
+    fac = sub.add_parser("facility", help="시설 등록/관리").add_subparsers(dest="sub", required=True)
+    add = fac.add_parser("add", help="zip 등록 + 해제 + 매니페스트")
+    add.add_argument("zip")
+    add.add_argument("--name", required=True)
+    add.add_argument("--profile", required=True)
+
+    inv = sub.add_parser("inventory", help="DXF 레이어/텍스트/블록 인벤토리")
+    inv.add_argument("facility_id")
+    inv.add_argument("--dxf")
+
+    prof = sub.add_parser("profile", help="프로파일 관리").add_subparsers(dest="sub", required=True)
+    prof.add_parser("wizard", help="인벤토리 → 프로파일 초안").add_argument("facility_id")
+
+    sub.add_parser("ingest", help="전체 추출 → DB 적재 (run_id 발급)").add_argument("facility_id")
+    sub.add_parser("graph", help="온톨로지 → Neo4j").add_subparsers(dest="sub", required=True)\
+        .add_parser("build").add_argument("facility_id")
+
+    val = sub.add_parser("validate", help="violations 검증")
+    val.add_argument("facility_id")
+    val.add_argument("--rules", default="gmp_osd_v1")
+
+    sub.add_parser("report", help="HTML 리포트").add_argument("facility_id")
+
+    gen = sub.add_parser("generate", help="레퍼런스 기반 배치")
+    gen.add_argument("--spec", required=True)
+    gen.add_argument("--refs", required=True)
+
+    exp = sub.add_parser("export", help="산출물 내보내기").add_subparsers(dest="sub", required=True)
+    exp.add_parser("dxf").add_argument("run_id")
+
+    run = sub.add_parser("run", help="파이프라인 묶음 실행").add_subparsers(dest="sub", required=True)
+    run.add_parser("all", help="ingest→graph→validate→report").add_argument("facility_id")
+
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    # 골격 단계: 모든 명령은 미구현 안내를 반환한다.
+    return _todo(f"{args.command} {getattr(args, 'sub', '') or ''}".strip())
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

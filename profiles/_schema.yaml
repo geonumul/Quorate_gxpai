@@ -1,0 +1,34 @@
+# _schema.yaml — 프로파일 자체의 스키마 (CI에서 프로파일 YAML 검증용)
+# 프로파일 = 시설군별 레이어/라벨/상수. 코드가 아니라 데이터다.
+$schema: "http://json-schema.org/draft-07/schema#"
+type: object
+required: [profile_id, profile_version, floors, floorplan, pressure]
+properties:
+  profile_id:      { type: string }   # 시설군+설계사+연도 (예: osd_hs_2025)
+  profile_version: { type: string }
+  description:     { type: string }
+  floors:
+    type: object                       # 방번호 첫자리 → 층 라벨
+  floorplan:
+    type: object
+    required: [room_layers, max_match_dist_mm]
+    properties:
+      room_layers:        { type: array, items: { type: string } }
+      max_match_dist_mm:  { type: number }
+      name_above_penalty: { type: number }
+      skip_names:         { type: array, items: { type: string } }
+  pressure:
+    type: object
+    required: [rm_layer, ta_layer]
+    properties:
+      rm_layer:            { type: string }
+      ta_layer:            { type: string }
+      title_layers:        { type: array, items: { type: string } }
+      arrow_block_prefix:  { type: string }
+      multiline_merge:
+        type: object
+        properties:
+          max_dy_mm: { type: number }
+          max_dx_mm: { type: number }
+  grades:
+    type: object                       # hatch_color → grade (데이터 수령 후 확정)

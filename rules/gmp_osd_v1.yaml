@@ -1,0 +1,43 @@
+# gmp_osd_v1.yaml — GMP OSD violations 규칙 v1 (T2.3.1)
+# 규칙 = 데이터. 코드 배포 없이 규칙 추가 가능. 각 규칙 근거는 rules/refs/ 에 별도 메모.
+# ※ GMP 근거 조항은 컨설턴트 검수 대상 (아직 미검수).
+version: "1"
+ruleset: gmp_osd_v1
+
+rules:
+  - id: PRES-001
+    severity: critical
+    title: "압력 캐스케이드 역전"
+    desc: "청정도 높은 방이 인접 낮은 방보다 저압이면 위반 (화살표 방향/서열 기준)"
+    ref: "별표17 / PIC-S Annex 1 (검수대기)"
+    status: draft
+  - id: PRES-002
+    severity: major
+    title: "차압 기준값 미달"
+    desc: "인접 Grade 경계의 차압이 기준(예 15Pa) 미만"
+    ref: "검수대기"
+    status: draft
+  - id: ADJ-001
+    severity: critical
+    title: "Grade 인접 금지쌍 위반"
+    desc: "직접 인접이 금지된 청정도 등급 조합이 맞닿음"
+    ref: "검수대기"
+    status: draft
+  - id: ADJ-002
+    severity: major
+    title: "갱의 체인 누락"
+    desc: "청정구역 진입 경로에 규정 갱의실 시퀀스 부재"
+    ref: "검수대기"
+    status: draft
+  - id: LBL-001
+    severity: minor
+    title: "방번호-이름 라벨 불일치"
+    desc: "평면도와 차압도의 동일 방번호 이름이 상이 (v0.1에서 4건 검출)"
+    ref: "내부 정합성"
+    status: active
+  - id: LBL-002
+    severity: minor
+    title: "방번호 누락/중복"
+    desc: "라벨은 있으나 번호 미부여, 또는 번호 중복"
+    ref: "내부 정합성"
+    status: draft

@@ -1,0 +1,13 @@
+# 텍스트 파일 줄바꿈 정규화 (Windows/Linux 협업)
+* text=auto eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.sql text eol=lf
+
+# 바이너리 (혹시 커밋되더라도 diff 오염 방지)
+*.dxf binary
+*.dwg binary
+*.pdf binary
+*.png binary

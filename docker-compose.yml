@@ -1,0 +1,42 @@
+# GXPAI 로컬 개발 스택: PostgreSQL(pgvector) + Neo4j
+# 기동:  docker compose up -d
+# 원칙(B.1): SQLite 폴백 금지. 스키마 변경은 db/migrations/NNN_*.sql 로만.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: gxpai-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gxpai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gxpai_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-gxpai}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro   # 최초 기동 시 마이그레이션 자동 적용
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gxpai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: gxpai-neo4j
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-gxpai_dev_pw}
+      NEO4J_PLUGINS: '["apoc"]'
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"   # 브라우저
+      - "${NEO4J_BOLT_PORT:-7687}:7687"   # Bolt 드라이버
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pg_data:
+  neo4j_data:
