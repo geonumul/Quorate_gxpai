@@ -129,6 +129,23 @@ def _cmd_profile_wizard(args) -> int:
     return 0
 
 
+def _cmd_run_all(args) -> int:
+    """ingest → graph build → validate → report 순차 실행 (B.3)."""
+    from .compliance import engine
+    from .core import run
+    from .ontology import builder
+    from .render import report
+    r = run.ingest(args.facility_id)
+    print(f"[run all] ingest run_id={r['run_id']} (방 {r['n_merged_rooms']}, 인접 {r['n_adjacency']})")
+    g = builder.build(args.facility_id, run_id=r["run_id"])
+    print(f"[run all] graph 노드={g['nodes']} 관계={g['relationships']}")
+    v = engine.validate(args.facility_id, ruleset="gmp_osd_v1", run_id=r["run_id"])
+    print(f"[run all] violations {v['total']}건 {v['by_rule']}")
+    path = report.generate(args.facility_id, run_id=r["run_id"])
+    print(f"[run all] report {path}")
+    return 0
+
+
 def _cmd_graph_build(args) -> int:
     from .ontology import builder
     r = builder.build(args.facility_id)
@@ -184,6 +201,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_report(args)
     if args.command == "graph" and sub == "build":
         return _cmd_graph_build(args)
+    if args.command == "run" and sub == "all":
+        return _cmd_run_all(args)
     # 나머지는 아직 골격.
     return _todo(f"{args.command} {sub}".strip())
 
