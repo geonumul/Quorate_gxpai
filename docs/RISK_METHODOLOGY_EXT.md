@@ -216,7 +216,7 @@ migration up → down → up 후 스키마 동일성. 데이터 있는 상태에
 악마 fixture 생성 스크립트 자체가 포트폴리오 소재다.
 
 **P-4. 납품 전 체크리스트 강제 [필수]**
-verify 전 항목 통과 / 카나리아 diff 클린 / 골드셋 P·R 기준치 / 민감도 리포트 / QUESTIONS 미결
+verify 전 항목 통과 / 기준 시설 diff 클린 / 골드셋 P·R 기준치 / 민감도 리포트 / QUESTIONS 미결
 항목 리포트 명시 / AutoCAD 실기 오픈 확인. 체크리스트 파일에 서명(날짜+커밋해시) 남기고 태그.
 
 **P-5. 사후 검시(post-mortem) 루틴 [권장]**
