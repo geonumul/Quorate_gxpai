@@ -11,6 +11,12 @@ rules:
     desc: "청정도 높은 방이 인접 낮은 방보다 저압이면 위반 (화살표 방향/서열 기준)"
     ref: "별표17 / PIC-S Annex 1 (검수대기)"
     status: draft
+    # 게이트: 화살표 의미(S-1)·Grade 도면·컨설턴트 검수 확정 후 enabled: true 로 활성화.
+    # grade_rank/방향은 잠정 기본값(검수대기). 순수 로직은 합성 시험으로 검증됨.
+    config:
+      enabled: false
+      cleaner_should_be: higher          # 청정도 높은 방이 고압이어야
+      grade_rank: {A: 4, B: 3, C: 2, D: 1, CNC: 0}  # 클수록 깨끗 (잠정)
   - id: PRES-002
     severity: major
     title: "차압 기준값 미달"
@@ -23,6 +29,11 @@ rules:
     desc: "직접 인접이 금지된 청정도 등급 조합이 맞닿음"
     ref: "검수대기"
     status: draft
+    # 게이트: Grade 도면·컨설턴트 검수 확정 후 enabled: true. forbidden_pairs 는 잠정.
+    # 인접 판정이 최근접-k 근사인 동안은 오탐/누락 가능 → 폴리곤 승격 후 재검증 필요.
+    config:
+      enabled: false
+      forbidden_pairs: [[A, D], [A, CNC], [B, CNC]]  # 직접 인접 금지 등급쌍 (잠정)
   - id: ADJ-002
     severity: major
     title: "갱의 체인 누락"

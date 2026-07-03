@@ -24,6 +24,21 @@ import sys
 __version__ = "0.1.0"
 
 
+def _force_utf8_output() -> None:
+    """Windows 콘솔 기본 코드페이지(cp949)에서 한글 출력이 깨지는 것을 막는다.
+
+    Python 은 stdout 인코딩을 콘솔 코드페이지로 잡아, UTF-8 터미널에서 한글이 mojibake 로
+    보인다(발주처가 CLI 를 쓸 때도 동일). 진입점에서 UTF-8 로 고정해 항상 정상 출력.
+    스트림이 reconfigure 를 지원 안 하면(리다이렉트 등) 조용히 넘어간다.
+    """
+    import io
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+        except (AttributeError, ValueError, io.UnsupportedOperation):
+            pass
+
+
 def _todo(name: str) -> int:
     print(f"[gxpai] '{name}' 은 아직 skeleton 입니다. docs/PROGRESS.md 참조.", file=sys.stderr)
     return 2
@@ -185,6 +200,7 @@ def _cmd_ingest(args) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _force_utf8_output()
     args = build_parser().parse_args(argv)
     sub = getattr(args, "sub", "") or ""
     if args.command == "facility" and sub == "add":

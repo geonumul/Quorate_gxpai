@@ -40,8 +40,15 @@
 - [x] T2.2  Neo4j 온톨로지: schema v1 + 멱등 빌더(노드 121·관계 288) + queries(이웃/고립방/통계).
        **PRESSURE_OVER 미생성**(S-1 화살표 의미 미확정 - 규칙 오류 증폭 방지, 정직성).
 - [~] T2.3  violations 엔진(규칙 YAML→checks 동적실행→적재, 멱등). **LBL-001(3)·LBL-002(17) 동작·검증.**
-       PRES-001/002·ADJ-001/002 는 미가동(S-1 의미확정·Grade수령 전. 리스크 S-1 "3중확인 전 가동금지").
+       **리팩터: 검사 로직을 순수 함수 evaluate()+DB 어댑터 run() 로 분리**(_model.py) - DB 없이 시험,
+       Stage3 생성 자기검증 재사용. PRES-001·ADJ-001 **순수 로직 완성+합성 시험 통과, 게이트(enabled:false)로
+       실제 미가동**(S-1 "3중확인 전 가동금지"). PRES-002·ADJ-002 미구현(단위·검수 대기).
+- [x] T2.3.3 **합성 위반 회귀 시험**(tests/test_compliance_rules.py, 10건): 각 규칙 위반 검출 + 오탐 0 + 게이트.
 - [x] T2.4  단일파일 HTML 리포트(지표+violations+층별 SVG data-room-no) + metrics.json. 정합성 경고 배너.
+- [x] 버그수정: CLI 한글 출력 깨짐(cp949) → main() 진입에서 stdout/stderr UTF-8 고정.
+
+### 데이터 대기 백로그
+- `docs/데이터_대기_작업.md`: 코드 준비 완료·게이트 잠김 항목(PRES-001/ADJ-001)과 활성화 방법, 미착수(PRES-002/ADJ-002/경계) 추적.
 
 ### Stage 2 교차검증 수렴 (신뢰 근거)
 - 고립방(X-14, 그래프) 17 = LBL-002(차압도전용) 17 = 도면간 방차이. 독립 3소스 일치.
