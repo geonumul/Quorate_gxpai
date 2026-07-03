@@ -57,13 +57,22 @@ def validate(facility_id: str, ruleset: str = "gmp_osd_v1", run_id: str | None =
                 summary["skipped"].append(f"{rid_name}(run 없음)")
                 continue
             found = mod.run(cur, rid, facility_id, rule) or []
+            # 근거 추적성(audit trail): 위반이 어느 조항·요구에서 왔는지를 위반 레코드에 함께 새긴다.
+            # 규칙 YAML 이 나중에 바뀌어도 판정 당시의 근거가 보존된다.
+            prov = {
+                "clause": rule.get("clause"),
+                "review": rule.get("review"),
+                "requirement": (rule.get("rase") or {}).get("requirement"),
+            }
             for v in found:
+                evidence = dict(v.get("evidence", {}))
+                evidence["_rule"] = prov
                 cur.execute(
                     """INSERT INTO violation (run_id, rule_id, severity, rooms, message, evidence, status)
                        VALUES (%s,%s,%s,%s,%s,%s,'open')""",
                     (rid, rid_name, v.get("severity", rule.get("severity", "minor")),
                      Json(v.get("rooms", [])), v.get("message", ""),
-                     Json(v.get("evidence", {}))),
+                     Json(evidence)),
                 )
             summary["by_rule"][rid_name] = len(found)
             summary["total"] += len(found)

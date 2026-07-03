@@ -47,6 +47,10 @@
        Stage3 생성 자기검증 재사용. PRES-001·ADJ-001 **순수 로직 완성+합성 시험 통과, 게이트(enabled:false)로
        실제 미가동**(S-1 "3중확인 전 가동금지"). PRES-002·ADJ-002 미구현(단위·검수 대기).
 - [x] T2.3.3 **합성 위반 회귀 시험**(tests/test_compliance_rules.py, 10건): 각 규칙 위반 검출 + 오탐 0 + 게이트.
+- [x] T2.3.4 **근거 추적성(RASE) + 동결 게이트**(선행연구 1순위·레드팀 GEN-R2): 규칙마다 RASE 4연산자
+       (requirement/applicability/selection/exception) + clause(근거조항) + review(internal/unreviewed/approved).
+       위반 레코드에 근거(_rule: clause·review·requirement) 자동 첨부(audit trail). 스키마 시험 3건(test_rules_schema).
+       LBL=internal(활성 안전), PRES/ADJ=unreviewed(잠금·생성보상 사용금지). 카나리아 3/17 불변.
 - [x] T2.4  단일파일 HTML 리포트(지표+violations+층별 SVG data-room-no) + metrics.json. 정합성 경고 배너.
 - [x] 버그수정: CLI 한글 출력 깨짐(cp949) → main() 진입에서 stdout/stderr UTF-8 고정.
 

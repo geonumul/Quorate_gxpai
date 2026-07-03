@@ -1,6 +1,18 @@
 # gmp_osd_v1.yaml - GMP OSD violations 규칙 v1 (T2.3.1)
-# 규칙 = 데이터. 코드 배포 없이 규칙 추가 가능. 각 규칙 근거는 rules/refs/ 에 별도 메모.
-# ※ GMP 근거 조항은 컨설턴트 검수 대상 (아직 미검수).
+# 규칙 = 데이터. 코드 배포 없이 규칙 추가 가능.
+#
+# 근거 추적성(RASE, Hjelseth & Nisbet 2011): 각 규칙을 4연산자로 분해해 "무엇을 왜 검사하는지"를
+# 규정 조항까지 역추적할 수 있게 한다. auditability 는 GMP 규제의 핵심 가치(선행연구 공통 결론).
+#   requirement  : 만족돼야 하는 것(shall/must)
+#   applicability: 적용 대상/조건(범위 좁힘)
+#   selection    : 대체 대상(범위 넓힘)
+#   exception    : 예외(unless, 배제)
+#
+# review = 동결 게이트(GEN-R2, 규칙 오류가 생성 보상을 오염시키지 않게):
+#   internal   = 내부 정합성 검사(GMP 조항 아님) - 활성 안전, 생성 보상 사용 가능
+#   unreviewed = GMP 조항 기반이나 컨설턴트 미검수 - 게이트로 잠금, 생성 보상 사용 금지
+#   approved   = 컨설턴트 검수 완료 - 활성/보상 사용 가능
+# clause 의 조항번호·잠정 파라미터는 컨설턴트 검수 전까지 확정 아님(보류).
 version: "1"
 ruleset: gmp_osd_v1
 
@@ -9,46 +21,87 @@ rules:
     severity: critical
     title: "압력 캐스케이드 역전"
     desc: "청정도 높은 방이 인접 낮은 방보다 저압이면 위반 (화살표 방향/서열 기준)"
-    ref: "별표17 / PIC-S Annex 1 (검수대기)"
+    clause: "별표17(의약품 GMP) / PIC-S Annex 1 - 조항번호 확정·검수대기"
+    review: unreviewed
+    rase:
+      requirement: "청정도가 높은(깨끗한) 방은 인접한 낮은 방보다 고압이어야 한다"
+      applicability: "차압 관계(고/저압)가 확정된 인접 실 쌍"
+      selection: "-"
+      exception: "옥외·계단실·샤프트 등 압력관리 대상 아닌 공간은 제외"
     status: draft
-    # 게이트: 화살표 의미(S-1)·Grade 도면·컨설턴트 검수 확정 후 enabled: true 로 활성화.
-    # grade_rank/방향은 잠정 기본값(검수대기). 순수 로직은 합성 시험으로 검증됨.
+    # 게이트: 화살표 의미(S-1)·Grade 도면·컨설턴트 검수 확정 후 enabled: true.
     config:
       enabled: false
-      cleaner_should_be: higher          # 청정도 높은 방이 고압이어야
-      grade_rank: {A: 4, B: 3, C: 2, D: 1, CNC: 0}  # 클수록 깨끗 (잠정)
+      cleaner_should_be: higher                       # 청정도 높은 방이 고압이어야 (잠정)
+      grade_rank: {A: 4, B: 3, C: 2, D: 1, CNC: 0}    # 클수록 깨끗 (잠정)
+
   - id: PRES-002
     severity: major
     title: "차압 기준값 미달"
     desc: "인접 Grade 경계의 차압이 기준(예 15Pa) 미만"
-    ref: "검수대기"
+    clause: "별표17 / ISPE Baseline - 검수대기"
+    review: unreviewed
+    rase:
+      requirement: "인접 청정등급 경계의 차압은 기준값(예: 15Pa) 이상이어야 한다"
+      applicability: "서로 다른 청정등급이 맞닿는 실 경계"
+      selection: "-"
+      exception: "동일 등급 간 경계는 제외"
     status: draft
+    # 미구현: TA 값은 풍량(CMH) 추정이라 차압(Pa) 입력 아님(docs/기존데이터_분석.md). 실제 Pa 수치 확보 후 착수.
+
   - id: ADJ-001
     severity: critical
     title: "Grade 인접 금지쌍 위반"
     desc: "직접 인접이 금지된 청정도 등급 조합이 맞닿음"
-    ref: "검수대기"
+    clause: "별표17 / PIC-S Annex 1 - 검수대기"
+    review: unreviewed
+    rase:
+      requirement: "직접 인접이 금지된 청정등급 조합은 맞닿으면 안 된다"
+      applicability: "청정등급이 부여된 인접 실 쌍"
+      selection: "-"
+      exception: "에어락·전실을 경유해 연결되는 경우는 직접 인접 아님"
     status: draft
-    # 게이트: Grade 도면·컨설턴트 검수 확정 후 enabled: true. forbidden_pairs 는 잠정.
-    # 인접 판정이 최근접-k 근사인 동안은 오탐/누락 가능 → 폴리곤 승격 후 재검증 필요.
+    # 게이트: Grade 도면·컨설턴트 검수 확정 후 enabled: true. 인접이 최근접-k 근사인 동안 오탐/누락 가능.
     config:
       enabled: false
-      forbidden_pairs: [[A, D], [A, CNC], [B, CNC]]  # 직접 인접 금지 등급쌍 (잠정)
+      forbidden_pairs: [[A, D], [A, CNC], [B, CNC]]   # 직접 인접 금지 등급쌍 (잠정)
+
   - id: ADJ-002
     severity: major
     title: "갱의 체인 누락"
     desc: "청정구역 진입 경로에 규정 갱의실 시퀀스 부재"
-    ref: "검수대기"
+    clause: "별표17 / PIC-S Annex 1 - 검수대기"
+    review: unreviewed
+    rase:
+      requirement: "청정구역 진입 경로에는 규정된 갱의실 시퀀스가 있어야 한다"
+      applicability: "저청정→고청정 구역으로 진입하는 동선 경로"
+      selection: "-"
+      exception: "물자 전용 경로(패스박스 등)는 별도 규정 적용"
     status: draft
+    # 미구현: Grade 도면 + 경로/인접 정밀도(폴리곤) 필요.
+
   - id: LBL-001
     severity: minor
     title: "방번호-이름 라벨 불일치"
     desc: "평면도와 차압도의 동일 방번호 이름이 상이 (v0.1에서 4건 검출)"
-    ref: "내부 정합성"
+    clause: "내부 정합성(평면도-차압도 대조) - GMP 조항 아님"
+    review: internal
+    rase:
+      requirement: "같은 방번호는 평면도와 차압도에서 이름이 일치해야 한다"
+      applicability: "평면도·차압도 두 도면 모두에 존재하는 번호방"
+      selection: "-"
+      exception: "표기 차이(공백·괄호·N·하이픈)만 있는 경우는 제외(정규화 후 비교)"
     status: active
+
   - id: LBL-002
     severity: minor
     title: "방번호 누락/중복"
-    desc: "라벨은 있으나 번호 미부여, 또는 번호 중복"
-    ref: "내부 정합성"
+    desc: "라벨은 있으나 번호 미부여, 또는 도면 간 한쪽에만 존재"
+    clause: "내부 정합성(도면 간 방 대조) - GMP 조항 아님"
+    review: internal
+    rase:
+      requirement: "번호방은 평면도와 차압도 양쪽에 일관되게 존재해야 한다"
+      applicability: "번호가 부여된 방"
+      selection: "-"
+      exception: "-"
     status: draft
