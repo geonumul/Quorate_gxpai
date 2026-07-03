@@ -36,6 +36,22 @@ th{background:#151a22;color:#9aa4b2}
 """
 
 
+def _gated_rules(ruleset: str) -> list[dict]:
+    """검수 대기(review=unreviewed)라 실행하지 않은 규칙 목록(근거·요구 포함)."""
+    from ..compliance.engine import _load_ruleset
+    try:
+        rs = _load_ruleset(ruleset)
+    except Exception:
+        return []
+    out = []
+    for r in rs.get("rules", []):
+        if r.get("review") == "unreviewed":
+            rase = r.get("rase") or {}
+            out.append({"id": r.get("id"), "title": r.get("title"),
+                        "clause": r.get("clause"), "requirement": rase.get("requirement")})
+    return out
+
+
 def _metrics(cur, run_id, facility_id) -> dict:
     def one(sql, *a):
         cur.execute(sql, a)
@@ -73,7 +89,7 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
 
         metrics = _metrics(cur, run_id, facility_id)
 
-        cur.execute("""SELECT rule_id, severity, message, rooms FROM violation
+        cur.execute("""SELECT rule_id, severity, message, rooms, evidence FROM violation
                        WHERE run_id=%s ORDER BY
                          CASE severity WHEN 'critical' THEN 0 WHEN 'major' THEN 1 ELSE 2 END,
                          rule_id, id""", (run_id,))
@@ -84,8 +100,14 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
         rooms = [{"room_no": a, "name": b, "floor": c, "x": d, "y": e}
                  for a, b, c, d, e in cur.fetchall()]
 
+        # 발주처 확인 대기: (a) 게이트로 잠긴 규칙(미검수), (b) DB 미결 질문
+        cur.execute("SELECT topic, body FROM question WHERE facility_id=%s AND status='open' ORDER BY id",
+                    (facility_id,))
+        open_questions = cur.fetchall()
+    gated_rules = _gated_rules("gmp_osd_v1")
+
     viol_room_nos = set()
-    for _rid, _sev, _msg, rooms_json in violations:
+    for _rid, _sev, _msg, rooms_json, _ev in violations:
         for rn in (rooms_json or []):
             viol_room_nos.add(str(rn))
 
@@ -108,14 +130,37 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
 
     out.append(f"<h2>Violations ({len(violations)}건)</h2>")
     if violations:
-        out.append("<table><tr><th>규칙</th><th>심각도</th><th>내용</th></tr>")
-        for rid, sev, msg, _rj in violations:
+        out.append("<table><tr><th>규칙</th><th>심각도</th><th>내용</th><th>근거(조항)</th></tr>")
+        for rid, sev, msg, _rj, evidence in violations:
+            prov = (evidence or {}).get("_rule", {}) if isinstance(evidence, dict) else {}
+            clause = prov.get("clause") or "-"
             out.append(f"<tr><td>{esc(rid)}</td>"
                        f"<td class='sev-{esc(sev)}'>{esc(sev)}</td>"
-                       f"<td>{esc(msg)}</td></tr>")
+                       f"<td>{esc(msg)}</td>"
+                       f"<td class='sub'>{esc(str(clause))}</td></tr>")
         out.append("</table>")
     else:
         out.append("<p>검출된 위반 없음.</p>")
+
+    # 발주처 확인 대기 (감사 상태 모델: 실행됨 / 미검수-잠금 / 확인질문)
+    out.append("<h2>발주처 확인 대기 (미검수·미확정)</h2>")
+    out.append('<p class="sub">아래는 우리 측 잠정 상태로, 발주처 확인 전까지 규칙을 실행하지 않거나 '
+               '해석을 확정하지 않은 항목입니다. 확인되면 규칙을 활성화합니다.</p>')
+    if gated_rules:
+        out.append("<table><tr><th>규칙</th><th>제목</th><th>요구(무엇을)</th><th>근거(조항)</th><th>상태</th></tr>")
+        for g in gated_rules:
+            out.append(f"<tr><td>{esc(str(g['id']))}</td><td>{esc(str(g['title']))}</td>"
+                       f"<td>{esc(str(g.get('requirement') or '-'))}</td>"
+                       f"<td class='sub'>{esc(str(g.get('clause') or '-'))}</td>"
+                       f"<td class='sev-major'>검수대기·잠금</td></tr>")
+        out.append("</table>")
+    if open_questions:
+        out.append("<table><tr><th>확인 항목</th><th>내용</th></tr>")
+        for topic, qbody in open_questions:
+            out.append(f"<tr><td>{esc(str(topic))}</td><td>{esc(str(qbody))}</td></tr>")
+        out.append("</table>")
+    if not gated_rules and not open_questions:
+        out.append("<p>확인 대기 항목 없음.</p>")
 
     # 층별 SVG
     out.append("<h2>층별 배치 (방 위치 · 위반 마커)</h2>")
