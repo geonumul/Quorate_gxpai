@@ -9,10 +9,40 @@ from __future__ import annotations
 from gxpai.geometry.pressure_links import associate_one, head_vector
 
 
-def test_head_vector_down_at_zero():
-    # rotation=0 → 화살촉 -y(아래). 세계각도 270°.
-    hx, hy = head_vector(0.0)
-    assert abs(hx) < 1e-9 and abs(hy + 1.0) < 1e-9
+def _close(v, target):
+    return abs(v - target) < 1e-9
+
+
+def test_head_vector_all_quadrants():
+    # 세계각도 = 270° + rotation. 블록이 회전하면 화살촉도 같이 돈다.
+    hx, hy = head_vector(0.0)     # 270° → -y(아래)
+    assert _close(hx, 0.0) and _close(hy, -1.0)
+    hx, hy = head_vector(90.0)    # 360°=0° → +x(오른쪽)
+    assert _close(hx, 1.0) and _close(hy, 0.0)
+    hx, hy = head_vector(180.0)   # 450°=90° → +y(위)
+    assert _close(hx, 0.0) and _close(hy, 1.0)
+    hx, hy = head_vector(270.0)   # 540°=180° → -x(왼쪽)
+    assert _close(hx, -1.0) and _close(hy, 0.0)
+
+
+def test_associate_rotation_90_points_right():
+    # rotation=90 → 화살촉 +x. 오른쪽 방=head, 왼쪽 방=tail.
+    rooms = [("L", -2000.0, 0.0), ("R", 2000.0, 0.0)]
+    tail, head = associate_one(0.0, 0.0, 90.0, rooms)
+    assert tail == "L" and head == "R"
+
+
+def test_associate_rotation_270_points_left():
+    rooms = [("L", -2000.0, 0.0), ("R", 2000.0, 0.0)]
+    tail, head = associate_one(0.0, 0.0, 270.0, rooms)
+    assert tail == "R" and head == "L"
+
+
+def test_associate_arbitrary_rotation_45():
+    # rotation=45 → 세계각도 315° → 화살촉 (+x,-y) 대각. 그 방향 방이 head.
+    rooms = [("NW", -1500.0, 1500.0), ("SE", 1500.0, -1500.0)]
+    tail, head = associate_one(0.0, 0.0, 45.0, rooms)
+    assert tail == "NW" and head == "SE"
 
 
 def test_associate_arrow_between_two_rooms():

@@ -34,6 +34,22 @@ def test_lbl001_clean_has_no_violation():
     assert lbl_001.evaluate(rooms) == []
 
 
+def test_lbl001_new_room_marker_normalized():
+    # 의도된 동작: "(N)"(신설 표기) 차이만 있으면 위반 아님.
+    rooms = [RoomView(room_no="3105", name="(N)충전실", pressure_name="충전실", plan_x=0.0)]
+    assert lbl_001.evaluate(rooms) == []
+
+
+def test_lbl001_KNOWN_LIMIT_bare_N_overnormalized():
+    """알려진 한계(회귀 고정): 정규화가 대문자 'N'을 어디서든 제거한다(_NORM=[\\s()N\\-]).
+    그래서 'N동' vs '동' 처럼 실제로 다른 이름이 같게 정규화돼 위반을 놓칠 수 있다(false negative).
+    지금은 v0.1 로직을 보존(카나리아 영향)하되, 이 위험을 시험으로 명시해 둔다.
+    → 개선안: '(N)' 접두만 제거하도록 정규식을 좁히면 오탐누락 감소(단 카나리아 재확인 필요)."""
+    rooms = [RoomView(room_no="3106", name="N동", pressure_name="동", plan_x=0.0)]
+    # 현재는 둘 다 '동'으로 정규화되어 위반 미검출 - 이상적이진 않으나 현 동작을 고정
+    assert lbl_001.evaluate(rooms) == []
+
+
 # ---------------------------------------------------------------- LBL-002
 def test_lbl002_catches_single_drawing_rooms():
     rooms = [
