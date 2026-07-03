@@ -151,7 +151,8 @@ def _cmd_run_all(args) -> int:
     from .ontology import builder
     from .render import report
     r = run.ingest(args.facility_id)
-    print(f"[run all] ingest run_id={r['run_id']} (방 {r['n_merged_rooms']}, 인접 {r['n_adjacency']})")
+    print(f"[run all] ingest run_id={r['run_id']} (방 {r['n_merged_rooms']}, 인접 {r['n_adjacency']}, "
+          f"화살표↔방 {r['n_pressure_links']})")
     g = builder.build(args.facility_id, run_id=r["run_id"])
     print(f"[run all] graph 노드={g['nodes']} 관계={g['relationships']}")
     v = engine.validate(args.facility_id, ruleset="gmp_osd_v1", run_id=r["run_id"])

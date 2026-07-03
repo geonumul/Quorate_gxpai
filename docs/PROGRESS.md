@@ -37,6 +37,9 @@
 - [~] T2.1  인접: 최근접 k=3 같은층 근사 283간선 적재(method=nearest). **방 경계 폴리곤은 보류**
        (XREF 벽체 미수령 = strategy1/2 불가, strategy3 flood-fill 은 벽 LINE 필요). 발주처 XREF 수령 시 착수.
        장비 귀속 승격(contains)도 경계 의존이라 보류(현재 nearest 376/418).
+- [x] T2.1b **화살표↔방 귀속**(migration 005 + geometry/pressure_links.py): 차압도 방 위치(pres_x/y) 보존 →
+       화살표를 차압도 내부 방쌍에 귀속(98중 54). **저장은 관찰된 기하만**: room_head(화살촉쪽)/room_tail.
+       **room_high/room_low 는 NULL 유지**(어느쪽 고압인지는 해석 - 발주처 확인 전 금지, S-1). 순수함수 시험 6건.
 - [x] T2.2  Neo4j 온톨로지: schema v1 + 멱등 빌더(노드 121·관계 288) + queries(이웃/고립방/통계).
        **PRESSURE_OVER 미생성**(S-1 화살표 의미 미확정 - 규칙 오류 증폭 방지, 정직성).
 - [~] T2.3  violations 엔진(규칙 YAML→checks 동적실행→적재, 멱등). **LBL-001(3)·LBL-002(17) 동작·검증.**

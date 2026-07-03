@@ -111,8 +111,10 @@ def ingest(facility_id: str) -> dict:
     _seed_questions(facility_id)
 
     # 인접 근사 (최근접 k, 경계 미확보 상태의 폴백)
-    from ..geometry import adjacency
+    from ..geometry import adjacency, pressure_links
     n_adj = adjacency.build(run_id)
+    # 화살표 ↔ 방 귀속(관찰된 기하만; room_high/low 는 발주처 확인 전까지 채우지 않음)
+    n_plinks = pressure_links.build(run_id)
 
     return {
         "run_id": run_id,
@@ -126,6 +128,7 @@ def ingest(facility_id: str) -> dict:
         "n_pressure_arrows": len(arrows),
         "n_ta_values": len(ta_values),
         "n_adjacency": n_adj,
+        "n_pressure_links": n_plinks,
     }
 
 
@@ -149,6 +152,9 @@ def _merge(floor_rooms, pres_rooms) -> list[dict]:
             "source_drawing_id": r.get("source_drawing_id"), "pressure_name": None,
         })
         entry["pressure_name"] = r["name"]
+        # 차압도 방 위치 보존(화살표↔방 귀속용). 평면도와 좌표계가 달라 plan_x/y 와 별개 컬럼.
+        entry["pres_x"] = r.get("x")
+        entry["pres_y"] = r.get("y")
         if entry.get("name") is None:
             entry["name"] = r["name"]
         if entry.get("floor") is None:
@@ -180,12 +186,12 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
         for r in rooms:
             cur.execute(
                 """INSERT INTO room (facility_id, run_id, room_no, name, pressure_name,
-                                     floor, sheet, plan_x, plan_y, source_drawing_id,
-                                     review_status)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'unreviewed') RETURNING id""",
+                                     floor, sheet, plan_x, plan_y, pres_x, pres_y,
+                                     source_drawing_id, review_status)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'unreviewed') RETURNING id""",
                 (facility_id, run_id, r.get("room_no"), r.get("name"), r.get("pressure_name"),
                  r.get("floor"), r.get("sheet"), r.get("plan_x"), r.get("plan_y"),
-                 r.get("source_drawing_id")),
+                 r.get("pres_x"), r.get("pres_y"), r.get("source_drawing_id")),
             )
             rid = cur.fetchone()[0]
             room_points.append((rid, r.get("plan_x"), r.get("plan_y")))
