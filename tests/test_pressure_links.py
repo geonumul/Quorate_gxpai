@@ -60,6 +60,15 @@ def test_rotation_flips_head_tail():
     assert tail == "B_down" and head == "A_up"
 
 
+def test_picks_nearest_room_not_farthest_each_side():
+    # 화살촉 방향(-y)에 방이 둘: 가까운 것(near)과 먼 것(far, 원뿔 안). 가까운 방이 head 여야.
+    rooms = [("up", 0.0, 1500.0),          # tail 쪽(가까움)
+             ("near", 500.0, -1500.0),     # head 쪽 가까움(측면 500)
+             ("far", 0.0, -5500.0)]        # head 쪽 멀리(반경 6000 이내)
+    tail, head = associate_one(0.0, 0.0, 0.0, rooms)
+    assert head == "near" and tail == "up"
+
+
 def test_no_room_in_range_returns_none():
     rooms = [("far", 0.0, 99999.0)]
     assert associate_one(0.0, 0.0, 0.0, rooms) == (None, None)

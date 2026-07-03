@@ -10,6 +10,7 @@ LLM 은 규칙 '해석/초안'에만 쓰고 실행은 코드가 한다(N2/C6: LL
 from __future__ import annotations
 
 import importlib
+import importlib.util
 from pathlib import Path
 
 import yaml
@@ -25,7 +26,7 @@ def _load_ruleset(ruleset: str) -> dict:
 
 
 def _latest_run(cur, facility_id: str) -> str | None:
-    cur.execute("SELECT id FROM run WHERE facility_id=%s ORDER BY started_at DESC LIMIT 1",
+    cur.execute("SELECT id FROM run WHERE facility_id=%s ORDER BY started_at DESC, id DESC LIMIT 1",
                 (facility_id,))
     row = cur.fetchone()
     return row[0] if row else None
@@ -48,11 +49,14 @@ def validate(facility_id: str, ruleset: str = "gmp_osd_v1", run_id: str | None =
         for rule in rs.get("rules", []):
             rid_name = rule["id"]
             module_name = rid_name.lower().replace("-", "_")
-            try:
-                mod = importlib.import_module(f"gxpai.compliance.checks.{module_name}")
-            except ModuleNotFoundError:
+            full_name = f"gxpai.compliance.checks.{module_name}"
+            # 모듈 '존재 여부'만 find_spec 으로 판정한다. 예전엔 import 를 통째로 try/except 해서,
+            # 체크 모듈이 존재하지만 내부에서 오타난 의존성을 import 하다 난 ModuleNotFoundError 까지
+            # '미구현'으로 삼켜 규칙이 조용히 사라졌다(수정됨). 이제 그런 진짜 오류는 전파된다.
+            if importlib.util.find_spec(full_name) is None:
                 summary["skipped"].append(f"{rid_name}(미구현)")
                 continue
+            mod = importlib.import_module(full_name)
             if not hasattr(mod, "run"):
                 summary["skipped"].append(f"{rid_name}(run 없음)")
                 continue

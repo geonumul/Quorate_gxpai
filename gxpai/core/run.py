@@ -64,9 +64,11 @@ def ingest(facility_id: str) -> dict:
     counts = {"floorplan": 0, "pressure": 0, "hvac": 0, "overview": 0,
               "ta_value": 0, "pressure_arrow": 0, "grade_zone": 0}
 
+    missing_files: list[str] = []
     for d in fac["drawings"]:
         path = raw / d["filename"]
         if not path.exists():
+            missing_files.append(d["filename"])  # 조용히 건너뛰지 말고 기록(완결성 감사)
             continue
         if d["kind"] == "floorplan":
             doc = _read_dxf(str(path))
@@ -105,7 +107,8 @@ def ingest(facility_id: str) -> dict:
 
     merged = _merge(floor_rooms, pres_rooms)
 
-    run_id = f"run_{facility_id}_{int(time.time())}"
+    # 나노초 해상도로 run_id 발급: 같은 초에 두 번 ingest 해도 PK 충돌하지 않게(M5).
+    run_id = f"run_{facility_id}_{time.time_ns()}"
     n_eq = _load(facility_id, run_id, profile_version, merged, equipment, ahus,
                  overview, arrows, ta_values)
     _seed_questions(facility_id)
@@ -129,6 +132,7 @@ def ingest(facility_id: str) -> dict:
         "n_ta_values": len(ta_values),
         "n_adjacency": n_adj,
         "n_pressure_links": n_plinks,
+        "missing_drawings": missing_files,
     }
 
 
@@ -137,7 +141,9 @@ def _merge(floor_rooms, pres_rooms) -> list[dict]:
     master: dict = {}
     for r in floor_rooms:
         if r["room_no"] is None:
-            master[f"_u_{r['plan_x']}_{r['plan_y']}"] = dict(r, pressure_name=None)
+            # 무번호 공간 키: 좌표 튜플(부동소수 f-string 은 '100' vs '100.0' 등에 취약).
+            # 같은 좌표의 두 무번호 방은 여전히 한 항목으로 합쳐짐(현 데이터엔 발생 안 함).
+            master[("_u", r["plan_x"], r["plan_y"])] = dict(r, pressure_name=None)
             continue
         master[r["room_no"]] = {
             "room_no": r["room_no"], "name": r["name"], "floor": r["floor"],

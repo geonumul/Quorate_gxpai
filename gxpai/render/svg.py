@@ -15,7 +15,9 @@ _PAD = 30
 
 def render_floor(floor: str, rooms: list[dict], violation_room_nos: set[str]) -> str:
     """rooms: [{room_no, name, x, y}]. y 는 DXF(위가 +) → SVG(아래가 +) 로 뒤집는다."""
-    pts = [(r["x"], r["y"]) for r in rooms if r.get("x") is not None]
+    # x·y 둘 다 있어야 점을 찍는다(한쪽만 있으면 min/뒤집기에서 TypeError).
+    pts = [(r["x"], r["y"]) for r in rooms
+           if r.get("x") is not None and r.get("y") is not None]
     if not pts:
         return f'<p>{html.escape(floor)}: 좌표 있는 방 없음</p>'
     xs = [p[0] for p in pts]
@@ -37,7 +39,7 @@ def render_floor(floor: str, rooms: list[dict], violation_room_nos: set[str]) ->
              f'role="img" aria-label="{html.escape(floor)} 평면 배치">']
     parts.append(f'<rect x="0" y="0" width="{_W}" height="{height:.0f}" fill="#0f1115"/>')
     for r in rooms:
-        if r.get("x") is None:
+        if r.get("x") is None or r.get("y") is None:
             continue
         cx, cy = sx(r["x"]), sy(r["y"])
         no = r.get("room_no") or ""

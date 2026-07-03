@@ -48,9 +48,11 @@ def associate_one(ax: float, ay: float, rotation_deg: float,
         if abs(dx * -hy + dy * hx) > max_lat:   # 측면거리(축 수직 성분)
             continue
         proj = dx * hx + dy * hy
-        if proj > 0 and (head_s is None or proj > head_s):
+        # 화살표는 인접한 두 방 사이에 있으므로, 각 방향에서 가장 '가까운'(작은 |proj|) 방을 고른다.
+        # (예전엔 가장 먼 방을 골라, 화살표 원뿔 안에 방이 3개 이상일 때 엉뚱한 방을 붙였다.)
+        if proj > 0 and (head_s is None or proj < head_s):
             head_key, head_s = key, proj
-        elif proj < 0 and (tail_s is None or -proj > tail_s):
+        elif proj < 0 and (tail_s is None or -proj < tail_s):
             tail_key, tail_s = key, -proj
     if head_key is not None and tail_key is not None and head_key != tail_key:
         return tail_key, head_key

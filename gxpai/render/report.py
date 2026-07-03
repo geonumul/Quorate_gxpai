@@ -80,7 +80,7 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
         frow = cur.fetchone()
         fac_name = frow[1] if frow else facility_id
         if run_id is None:
-            cur.execute("SELECT id FROM run WHERE facility_id=%s ORDER BY started_at DESC LIMIT 1",
+            cur.execute("SELECT id FROM run WHERE facility_id=%s ORDER BY started_at DESC, id DESC LIMIT 1",
                         (facility_id,))
             r = cur.fetchone()
             run_id = r[0] if r else None
@@ -96,7 +96,8 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
         violations = cur.fetchall()
 
         cur.execute("""SELECT room_no, name, floor, plan_x, plan_y FROM room
-                       WHERE run_id=%s AND plan_x IS NOT NULL ORDER BY floor, room_no""", (run_id,))
+                       WHERE run_id=%s AND plan_x IS NOT NULL AND plan_y IS NOT NULL
+                       ORDER BY floor, room_no""", (run_id,))
         rooms = [{"room_no": a, "name": b, "floor": c, "x": d, "y": e}
                  for a, b, c, d, e in cur.fetchall()]
 
@@ -136,7 +137,7 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
             clause = prov.get("clause") or "-"
             out.append(f"<tr><td>{esc(rid)}</td>"
                        f"<td class='sev-{esc(sev)}'>{esc(sev)}</td>"
-                       f"<td>{esc(msg)}</td>"
+                       f"<td>{esc(msg or '')}</td>"
                        f"<td class='sub'>{esc(str(clause))}</td></tr>")
         out.append("</table>")
     else:
@@ -149,7 +150,8 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
     if gated_rules:
         out.append("<table><tr><th>규칙</th><th>제목</th><th>요구(무엇을)</th><th>근거(조항)</th><th>상태</th></tr>")
         for g in gated_rules:
-            out.append(f"<tr><td>{esc(str(g['id']))}</td><td>{esc(str(g['title']))}</td>"
+            out.append(f"<tr><td>{esc(str(g.get('id') or '-'))}</td>"
+                       f"<td>{esc(str(g.get('title') or '-'))}</td>"
                        f"<td>{esc(str(g.get('requirement') or '-'))}</td>"
                        f"<td class='sub'>{esc(str(g.get('clause') or '-'))}</td>"
                        f"<td class='sev-major'>검수대기·잠금</td></tr>")

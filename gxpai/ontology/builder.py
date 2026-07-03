@@ -13,7 +13,7 @@ from ..core.db import connect, neo4j_driver
 def build(facility_id: str, run_id: str | None = None) -> dict:
     with connect() as conn, conn.cursor() as cur:
         if run_id is None:
-            cur.execute("SELECT id FROM run WHERE facility_id=%s ORDER BY started_at DESC LIMIT 1",
+            cur.execute("SELECT id FROM run WHERE facility_id=%s ORDER BY started_at DESC, id DESC LIMIT 1",
                         (facility_id,))
             row = cur.fetchone()
             run_id = row[0] if row else None
@@ -36,12 +36,15 @@ def build(facility_id: str, run_id: str | None = None) -> dict:
         with driver.session() as s:
             # 멱등: 이 run 의 기존 노드 제거
             s.run("MATCH (n {run_id:$r}) DETACH DELETE n", r=run_id)
-            s.run("MERGE (f:Facility {facility_id:$fid}) SET f.name=$name, f.run_id=$r",
+            # Facility 도 run_id 로 키를 잡는다(모든 노드에 run_id 불변식). 예전엔 facility_id 로만
+            # MERGE 해 노드를 run 간 공유했고, 다른 run 을 재빌드할 때 DETACH DELETE 가 이 공유
+            # 노드를 지워 앞 run 의 HAS 엣지를 끊는 교차오염이 있었다(수정됨).
+            s.run("MERGE (f:Facility {facility_id:$fid, run_id:$r}) SET f.name=$name",
                   fid=facility_id, name=fac_name, r=run_id)
 
             floors = sorted({r["floor"] for r in rooms if r["floor"]})
             for fl in floors:
-                s.run("""MATCH (f:Facility {facility_id:$fid})
+                s.run("""MATCH (f:Facility {facility_id:$fid, run_id:$r})
                          MERGE (fl:Floor {facility_id:$fid, run_id:$r, name:$fl})
                          MERGE (f)-[:HAS]->(fl)""", fid=facility_id, r=run_id, fl=fl)
 
