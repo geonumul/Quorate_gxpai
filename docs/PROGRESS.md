@@ -61,6 +61,11 @@
   정규화돼 실제 이름 불일치를 놓칠 수 있음(false negative). 현 동작은 시험으로 고정(카나리아 보존),
   개선안=`(N)` 접두만 제거하도록 좁히기(사용자 판단 대기).
 
+### 감사추적 정직성 (2026-07-03, 코드리뷰 M6/M7/M8 고침)
+- run 행을 payload 와 별도 트랜잭션으로 먼저 'running' 커밋 → **실패한 ingest 도 'failed'+error+finished_at 로 감사에 남음**
+  (예전엔 롤백돼 사라짐). 파생(adjacency·pressure_links)까지 성공해야 'done'. append-only 불변 이력(GMP 감사에 올바른 모델).
+  migration 006(finished_at·error). 검증: running→failed 지속·done 마감, 카나리아 111/3/17 불변.
+
 ### 데이터 대기 백로그
 - `docs/데이터_대기_작업.md`: 코드 준비 완료·게이트 잠김 항목(PRES-001/ADJ-001)과 활성화 방법, 미착수(PRES-002/ADJ-002/경계) 추적.
 

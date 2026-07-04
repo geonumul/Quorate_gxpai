@@ -109,15 +109,21 @@ def ingest(facility_id: str) -> dict:
 
     # 나노초 해상도로 run_id 발급: 같은 초에 두 번 ingest 해도 PK 충돌하지 않게(M5).
     run_id = f"run_{facility_id}_{time.time_ns()}"
-    n_eq = _load(facility_id, run_id, profile_version, merged, equipment, ahus,
-                 overview, arrows, ta_values)
-    _seed_questions(facility_id)
-
-    # 인접 근사 (최근접 k, 경계 미확보 상태의 폴백)
-    from ..geometry import adjacency, pressure_links
-    n_adj = adjacency.build(run_id)
-    # 화살표 ↔ 방 귀속(관찰된 기하만; room_high/low 는 발주처 확인 전까지 채우지 않음)
-    n_plinks = pressure_links.build(run_id)
+    # 감사추적(M6/M7): run 행을 먼저 'running' 으로 별도 커밋 → 이후 실패해도 이력이 남는다.
+    # 이력은 append-only(불변): 매 ingest = 새 run. 과거 run 은 지우지 않는다(감사).
+    _create_run(facility_id, run_id, profile_version)
+    try:
+        n_eq = _load(facility_id, run_id, profile_version, merged, equipment, ahus,
+                     overview, arrows, ta_values)
+        _seed_questions(facility_id)
+        # 인접 근사 + 화살표↔방 귀속도 성공 판정에 포함(M8): 파생까지 끝나야 'done'.
+        from ..geometry import adjacency, pressure_links
+        n_adj = adjacency.build(run_id)
+        n_plinks = pressure_links.build(run_id)
+    except Exception as exc:  # noqa: BLE001 - 어떤 실패든 감사에 남긴다
+        _finish_run(run_id, "failed", str(exc)[:2000])
+        raise
+    _finish_run(run_id, "done")
 
     return {
         "run_id": run_id,
@@ -179,15 +185,32 @@ def _nearest_room_id(x, y, room_points, max_d=8000):
     return best
 
 
-def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview,
-          arrows, ta_values) -> int:
+def _create_run(facility_id, run_id, profile_version) -> None:
+    """run 행을 'running' 으로 별도 트랜잭션에 커밋(payload 실패해도 이력이 남게)."""
     with connect() as conn, conn.cursor() as cur:
         cur.execute(
             """INSERT INTO run (id, facility_id, pipeline_version, profile_version, status)
                VALUES (%s, %s, %s, %s, 'running')""",
             (run_id, facility_id, PIPELINE_VERSION, profile_version),
         )
-        cur.execute("DELETE FROM room WHERE run_id=%s", (run_id,))
+        conn.commit()
+
+
+def _finish_run(run_id, status, error=None) -> None:
+    """run 을 done/failed 로 마감(별도 트랜잭션). finished_at·error 기록."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE run SET status=%s, finished_at=now(), error=%s WHERE id=%s",
+            (status, error, run_id),
+        )
+        conn.commit()
+
+
+def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview,
+          arrows, ta_values) -> int:
+    # run 행은 이미 _create_run 이 만들었다. 여기선 payload 만 적재(멱등 DELETE 는 append-only
+    # 모델에선 무의미하므로 제거). 매 ingest = 새 run_id 라 room 재삽입 충돌 없음.
+    with connect() as conn, conn.cursor() as cur:
         room_points = []  # (room_id, plan_x, plan_y) - 장비 귀속용
         for r in rooms:
             cur.execute(
@@ -248,8 +271,7 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
                 (run_id, facility_id, t["x"], t["y"], t["value_raw"], t.get("unit")),
             )
 
-        cur.execute("UPDATE run SET status='done' WHERE id=%s", (run_id,))
-        conn.commit()
+        conn.commit()   # payload 커밋. done/failed 마감은 ingest() 가 _finish_run 으로.
         return n_eq
 
 
