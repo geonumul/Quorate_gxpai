@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from ..dxftext import iter_label_texts, text_position
+from ..dxftext import _layer_visible, normalize_dxf_text, text_position
 from .base import BaseExtractor, Record
 
 
@@ -29,7 +29,8 @@ class HvacExtractor(BaseExtractor):
         for e in doc.modelspace():
             if e.dxftype() not in entity_types:
                 continue
-            from ..dxftext import normalize_dxf_text
+            if not _layer_visible(doc, e.dxf.layer):   # S-10: frozen/off 유령 태그 제외
+                continue
             t = normalize_dxf_text(e)
             m = tag_re.search(t)
             if not m:
@@ -50,6 +51,8 @@ class HvacExtractor(BaseExtractor):
                 continue
             layer = e.dxf.layer
             if not layer.upper().startswith(prefix.upper()):
+                continue
+            if not _layer_visible(doc, layer):          # S-10: frozen/off 제외
                 continue
             tag = layer.upper().replace(" ", "")
             key = (tag, round(e.dxf.insert.x), round(e.dxf.insert.y))

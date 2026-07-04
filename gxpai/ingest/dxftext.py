@@ -60,6 +60,8 @@ def iter_label_texts_any_layer(doc, entity_types=("TEXT", "MTEXT")):
 
 def iter_label_texts(doc, layers, entity_types=("TEXT", "MTEXT")):
     """지정 레이어의 보이는 TEXT/MTEXT를 (x, y, text, height) 로 순회 (R-A1/A2/S-10)."""
+    if isinstance(layers, str):          # 프로파일이 "RM" 처럼 문자열이면 문자로 쪼개짐 방지
+        layers = [layers]
     layers = set(layers)
     types = tuple(entity_types)
     msp = doc.modelspace()

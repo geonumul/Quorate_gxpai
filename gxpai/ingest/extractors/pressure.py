@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from ..dxftext import iter_label_texts, normalize_dxf_text
+from ..dxftext import iter_label_texts, normalize_dxf_text, text_position
 from ._common import floor_from_number, match_name_to_anchor, merge_multiline_names
 from .base import BaseExtractor, Record
 
@@ -47,7 +47,9 @@ class PressureExtractor(BaseExtractor):
                 t = normalize_dxf_text(e)
                 m = fre.search(t)
                 if m:
-                    floor_anchors.append((e.dxf.insert.x, f"{m.group(1)}F"))
+                    # R-F1: 정렬(center/right) 텍스트는 insert 가 (0,0) 쓰레기값일 수 있어
+                    # align_point 보정 위치를 쓴다(안 그러면 층 판정이 x≈0 로 오배정).
+                    floor_anchors.append((text_position(e).x, f"{m.group(1)}F"))
         floor_anchors.sort()
 
         def floor_of(x):

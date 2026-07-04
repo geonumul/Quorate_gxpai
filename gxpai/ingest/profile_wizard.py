@@ -37,6 +37,7 @@ def wizard_from_floorplan(dxf_path: str) -> dict:
     per_layer_num = Counter()
     per_layer_name = Counter()
     first_digits = Counter()
+    num_lens = Counter()          # 방번호 자릿수 분포 → 정규식을 감지값에 맞춘다
     paren_hits, bare_hits = 0, 0
 
     for _x, _y, t, layer in iter_label_texts_any_layer(doc):
@@ -45,10 +46,12 @@ def wizard_from_floorplan(dxf_path: str) -> dict:
         if m:
             per_layer_num[layer] += 1
             first_digits[m.group(1)[0]] += 1
+            num_lens[len(m.group(1))] += 1
             paren_hits += 1
         elif b:
             per_layer_num[layer] += 1
             first_digits[b.group(1)[0]] += 1
+            num_lens[len(b.group(1))] += 1
             bare_hits += 1
         elif HANGUL.search(t):
             per_layer_name[layer] += 1
@@ -58,8 +61,14 @@ def wizard_from_floorplan(dxf_path: str) -> dict:
         | {l for l, n in per_layer_name.items() if n >= 10},
         key=lambda l: -(per_layer_num[l] + per_layer_name[l]),
     )
-    room_no_regex = (r"^\((\d{4}(?:-\d+)?)\)$" if paren_hits >= bare_hits
-                     else r"^(\d{4}(?:-\d+)?)$")
+    # 감지한 자릿수 범위로 정규식 생성(예전엔 \d{4} 하드코딩이라 3·5자리 번호를 통째로 놓쳤다)
+    if num_lens:
+        lo, hi = min(num_lens), max(num_lens)
+        digits = f"\\d{{{lo}}}" if lo == hi else f"\\d{{{lo},{hi}}}"
+    else:
+        digits = r"\d{4}"
+    room_no_regex = (rf"^\(({digits}(?:-\d+)?)\)$" if paren_hits >= bare_hits
+                     else rf"^({digits}(?:-\d+)?)$")
     floors = {d: f"{d}F" for d in sorted(first_digits) if d.isdigit()}
     equip_candidates = [l for l, _ in per_layer_name.most_common()
                         if l not in room_layers][:2]

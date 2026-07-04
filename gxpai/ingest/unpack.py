@@ -49,15 +49,43 @@ def sha256_of(path: Path) -> str:
     return h.hexdigest()
 
 
+def _dxf_paths(root: Path) -> list[Path]:
+    """대소문자 무관하게 .dxf 파일 수집(Linux 등 대소문자 구분 FS 대비)."""
+    return sorted(p for p in root.rglob("*")
+                  if p.is_file() and p.suffix.lower() == ".dxf")
+
+
+def _extract_zip(src: Path, workdir: Path) -> None:
+    """cp949 파일명을 복원하며 해제. (예전 zipfile.extractall 은 UTF-8 플래그 없는
+    한국 zip 을 cp437 로 디코드해 한글이 깨지고 → detect_kind 가 'unknown' 이 됐다.)"""
+    workdir.mkdir(parents=True, exist_ok=True)
+    root = workdir.resolve()
+    with zipfile.ZipFile(src) as z:
+        for info in z.infolist():
+            name = info.filename
+            if not (info.flag_bits & 0x800):          # UTF-8 아님 → cp437→cp949 재해석
+                try:
+                    name = name.encode("cp437").decode("cp949")
+                except (UnicodeEncodeError, UnicodeDecodeError):
+                    pass
+            target = (workdir / name).resolve()
+            if not str(target).startswith(str(root)):  # path traversal 방어
+                continue
+            if info.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with z.open(info) as s, open(target, "wb") as d:
+                    shutil.copyfileobj(s, d)
+
+
 def _collect_dxf(src: Path, workdir: Path) -> list[Path]:
     """zip 이면 해제, 폴더면 그대로 순회해 DXF 경로 목록 반환."""
     if src.is_dir():
-        return sorted(src.rglob("*.dxf"))
+        return _dxf_paths(src)
     if src.suffix.lower() == ".zip":
-        workdir.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(src) as z:
-            z.extractall(workdir)  # cp949 파일명은 zipfile 이 대체로 처리
-        return sorted(workdir.rglob("*.dxf"))
+        _extract_zip(src, workdir)
+        return _dxf_paths(workdir)
     if src.suffix.lower() == ".dxf":
         return [src]
     raise ValueError(f"지원하지 않는 입력: {src}")
@@ -70,14 +98,25 @@ def register(src: Path, facility_id: str, raw_root: Path) -> list[dict]:
     tmp = raw_root / f".unzip_{facility_id}"
 
     drawings = []
+    used: set[str] = set()
     for dxf in _collect_dxf(src, tmp):
-        dest = dest_dir / dxf.name
+        # 다른 하위폴더의 동명 파일(예: 3F/PLAN.dxf, 4F/PLAN.dxf)이 basename 으로 뭉개져
+        # 도면이 유실되던 문제 방지 - 충돌 시 상위 폴더명을 붙여 구분한다.
+        base = dxf.name
+        if base in used:
+            base = f"{dxf.parent.name}__{dxf.name}"
+            i = 1
+            while base in used:
+                base = f"{dxf.parent.name}_{i}__{dxf.name}"
+                i += 1
+        used.add(base)
+        dest = dest_dir / base
         if dxf.resolve() != dest.resolve():
             shutil.copy2(dxf, dest)
         drawings.append({
-            "filename": dxf.name,
+            "filename": base,
             "sha256": sha256_of(dest),
-            "kind": detect_kind(dxf.name),
+            "kind": detect_kind(base),
             "path": str(dest),
         })
     if tmp.exists():
