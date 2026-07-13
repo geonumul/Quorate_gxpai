@@ -37,6 +37,11 @@ import numpy as np
 from scipy import ndimage
 
 
+# 문 양옆에서 방을 찾을 때 훑는 거리(mm). 가까운 데부터.
+# 한 거리만 찍으면 그 점이 벽 두께 안이거나 가구 위일 때 방을 못 읽는다.
+_DOOR_PROBE_STEPS = (300, 500, 700, 1000, 1400, 1900, 2500)
+
+
 @dataclass
 class RoomRegion:
     room_no: str
@@ -399,7 +404,6 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
     if door_segs:
         seen_d: set[tuple[str, str]] = set()
         by_lid = {rr.mask_id: rr.room_no for rr in res.rooms}
-        probe = max(2, int(round(600.0 / cell)))     # 문 양옆 60cm 를 찍는다(벽 두께를 넘도록)
         for x0, y0, x1, y1 in door_segs:
             dx, dy = x1 - x0, y1 - y0
             L = math.hypot(dx, dy)
@@ -407,15 +411,21 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
                 continue
             nx, ny = -dy / L, dx / L                 # 문틀에 **수직**인 방향
             mx, my = (x0 + x1) / 2, (y0 + y1) / 2    # 문 한가운데
+            # ★한 점만 찍으면 안 된다 — 그 점이 벽 두께 안이거나 가구 위면 방을 못 읽는다.
+            #   실제로 참고도면에서 호 85개 중 **4쌍**만 건졌다(검출률 14%).
+            #   → 수직 방향으로 **여러 거리를 훑어** 처음 만나는 방을 쓴다.
             side: list[str] = []
             for s in (+1, -1):
-                px = gx(mx) + int(round(nx * probe * s))
-                py = gy(my) + int(round(ny * probe * s))
-                if not (0 <= py < h and 0 <= px < w):
-                    continue
-                no = by_lid.get(int(lab[py, px]))
-                if no:
-                    side.append(no)
+                for step in _DOOR_PROBE_STEPS:
+                    r_ = max(1, int(round(step / cell)))
+                    px = gx(mx) + int(round(nx * r_ * s))
+                    py = gy(my) + int(round(ny * r_ * s))
+                    if not (0 <= py < h and 0 <= px < w):
+                        continue
+                    no = by_lid.get(int(lab[py, px]))
+                    if no:
+                        side.append(no)
+                        break
             if len(side) == 2 and side[0] != side[1]:
                 key = tuple(sorted(side))
                 if key not in seen_d:

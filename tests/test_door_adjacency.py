@@ -100,3 +100,24 @@ def test_문_검출률이_낮으면_문_데이터를_쓰면_안_된다():
     DOOR_TRUST = 0.8
     assert 낮음.door_coverage < DOOR_TRUST      # → None 을 넘겨 via_door NULL
     assert 높음.door_coverage >= DOOR_TRUST     # → 문 인접을 쓴다
+
+
+def test_문_양옆_방을_한_거리만_찍으면_안_된다():
+    """★문 검출률이 14% 였던 진짜 원인.
+
+    문 한가운데에서 수직으로 **600mm 한 점만** 찍어 방을 읽었다.
+    그 점이 **벽 두께 안**이거나 **가구 위**에 떨어지면 방을 못 읽는다.
+    참고도면에서 문 호 85개 중 4쌍만 건졌다(14%).
+
+    → 여러 거리(300·500·700·1000·1400·1900·2500mm)를 훑어 **처음 만나는 방**을 쓴다.
+      검출률 14% → **84%** (참고도면) · 44% → **87%** (기준 시설).
+      둘 다 신뢰 임계값(80%)을 넘어 문 데이터를 실제로 쓰게 됐다.
+
+    이 시험은 '여러 거리를 훑는다'는 설계를 고정한다.
+    """
+    from gxpai.geometry.boundaries import _DOOR_PROBE_STEPS
+
+    assert len(_DOOR_PROBE_STEPS) >= 5, "한두 거리만 훑으면 벽·가구에 막힌다"
+    assert _DOOR_PROBE_STEPS[0] <= 300, "가까운 데부터 봐야 옆방을 훔쳐오지 않는다"
+    assert _DOOR_PROBE_STEPS[-1] >= 2000, "벽이 두껍거나 가구가 크면 멀리까지 봐야 한다"
+    assert list(_DOOR_PROBE_STEPS) == sorted(_DOOR_PROBE_STEPS), "가까운 순이어야 한다"
