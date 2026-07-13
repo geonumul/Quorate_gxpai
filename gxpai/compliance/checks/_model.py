@@ -32,6 +32,14 @@ class RoomView:
     grade: str | None = None
     plan_x: float | None = None
     plan_y: float | None = None
+    # 아래 3개는 migration 007. 압력 규칙 재설계(PRES-001/002/003)에 필요하다.
+    #   pressure_pa   : 도면에 표기된 절대 정압(Pa). 없으면 None → 수치 규칙은 조용히 건너뜀
+    #   regime        : protect | contain | hazard | neutral (압력 방향 유형)
+    #   regime_source : inferred | profile | drawing | manual (감사 추적)
+    # regime 이 None 이면 검사 쪽에서 방 이름으로 **추정**한다(_regime.infer_regime).
+    pressure_pa: float | None = None
+    regime: str | None = None
+    regime_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -56,13 +64,15 @@ class AdjPair:
 def load_rooms(cur, run_id: str) -> list[RoomView]:
     """room 테이블에서 한 run 의 방들을 RoomView 로 적재."""
     cur.execute(
-        """SELECT room_no, name, pressure_name, floor, grade, plan_x, plan_y
+        """SELECT room_no, name, pressure_name, floor, grade, plan_x, plan_y,
+                  pressure_pa, regime, regime_source
              FROM room WHERE run_id=%s""",
         (run_id,),
     )
     return [
         RoomView(room_no=r[0], name=r[1], pressure_name=r[2], floor=r[3],
-                 grade=r[4], plan_x=r[5], plan_y=r[6])
+                 grade=r[4], plan_x=r[5], plan_y=r[6],
+                 pressure_pa=r[7], regime=r[8], regime_source=r[9])
         for r in cur.fetchall()
     ]
 
