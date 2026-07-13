@@ -361,12 +361,16 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
 
         # 차압 화살표 → pressure_relation 에 원시 보관 (방 미귀속, approx=true).
         # 방향 의미 확정(S-1)·방 귀속은 Stage 2 에서 채운다.
+        # head_deg 는 블록 기하에서 **잰** 세계 각도다(가정 아님). NULL 이면 못 읽은 것.
+        # layer/setpoint_pa: 레이어 이름이 곧 차압 설정값('Air Flow 15Pa' → 15).
         for a in arrows:
             cur.execute(
                 """INSERT INTO pressure_relation
-                     (run_id, room_high, room_low, evidence_x, evidence_y, rotation, approx)
-                   VALUES (%s, NULL, NULL, %s, %s, %s, true)""",
-                (run_id, a["x"], a["y"], a["rotation_deg"]),
+                     (run_id, room_high, room_low, evidence_x, evidence_y, rotation, approx,
+                      head_deg, layer, setpoint_pa)
+                   VALUES (%s, NULL, NULL, %s, %s, %s, true, %s, %s, %s)""",
+                (run_id, a["x"], a["y"], a["rotation_deg"],
+                 a.get("head_deg"), a.get("layer"), a.get("setpoint_pa")),
             )
 
         # TA 수치 → ta_value (단위 미확정, 어떤 규칙도 참조 금지 R-D2)

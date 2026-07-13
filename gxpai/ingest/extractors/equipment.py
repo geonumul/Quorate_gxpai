@@ -21,7 +21,8 @@ class EquipmentExtractor(BaseExtractor):
             return []
         entity_types = profile.get("label_entity_types", ["TEXT", "MTEXT"])
         records: list[Record] = []
-        for x, y, t, _h in iter_label_texts(doc, layers, entity_types):
+        _skip = profile.get("label_exclude_blocks")
+        for x, y, t, _h in iter_label_texts(doc, layers, entity_types, exclude_blocks=_skip):
             records.append(Record(kind="equipment", payload={
                 "name": t, "x": round(x, 1), "y": round(y, 1), "method": "nearest",
             }))

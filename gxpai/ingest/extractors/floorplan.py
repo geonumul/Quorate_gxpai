@@ -37,7 +37,11 @@ class FloorplanExtractor(BaseExtractor):
         penalty = fp.get("name_above_penalty", 0.0)
         merge = fp.get("multiline_merge", {})
 
-        texts = list(iter_label_texts(doc, fp["room_layers"], entity_types))
+        # ★label_exclude_blocks: 기둥·치수 블록 안으로 들어가지 않는다.
+        #   블록 재귀를 켠 뒤 `SC2(기둥)` 안의 철골 규격이 방 이름으로 빨려 들어왔다.
+        _skip = profile.get("label_exclude_blocks")
+        texts = list(iter_label_texts(doc, fp["room_layers"], entity_types,
+                                      exclude_blocks=_skip))
         sheets = load_sheet_titles(doc, fp.get("title_attrib_tag", "도면명"))
 
         numbers, names = [], []

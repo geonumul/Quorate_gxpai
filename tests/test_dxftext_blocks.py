@@ -121,3 +121,48 @@ def test_스케일_회전된_블록도_좌표가_맞는다():
     # (10,0) → 2배 → (20,0) → 90도 회전 → (0,20) → 이동 → (100,120)
     assert t == "A"
     assert (round(x), round(y)) == (100, 120)
+
+
+# ── 블록 재귀가 딸려오면 안 되는 것까지 딸려온다 ──────────────────
+def test_기둥_블록_안으로는_들어가지_않는다():
+    """★기준값이 깨져서 잡아낸 버그. 블록 재귀를 켠 대가.
+
+    기준 시설 평면도의 블록 `SC2(기둥)` 안에는 철골 규격 `H-350X350X12X19` 가 있고,
+    하필 그 텍스트가 **방 이름 레이어(TMP_TXT)** 에 얹혀 있다. 재귀가 이걸 빨아들여
+        · 방 4107 의 이름 = 'SC2 H-350X350X12X19'   (이름이 통째로 철골 규격)
+        · 방 3205 의 이름 = 'SC2 H-350X350X12X19 갱의실(여)A'  (이름 앞에 규격이 붙음)
+    이 됐다. LBL-001 이 3건 → **4건**으로 늘어 기준값(3/17)이 깨진 덕에 들통났다.
+
+    **숫자 하나가 어긋난 것을 그냥 넘겼으면 방 이름이 조용히 오염된 채로 갔다.**
+    """
+    doc = ezdxf.new()
+    doc.layers.add("TMP_TXT")
+
+    기둥 = doc.blocks.new("SC2(기둥)")
+    기둥.add_text("H-350X350X12X19", dxfattribs={"layer": "TMP_TXT", "insert": (0, 0)})
+    라벨 = doc.blocks.new("ROOMLABEL")
+    라벨.add_text("갱의실(여)A", dxfattribs={"layer": "TMP_TXT", "insert": (0, 0)})
+
+    msp = doc.modelspace()
+    msp.add_blockref("SC2(기둥)", (100, 100))
+    msp.add_blockref("ROOMLABEL", (500, 500))
+
+    # 막지 않으면 철골 규격이 방 이름 레이어에서 딸려온다
+    got = {t for _x, _y, t, _h in iter_label_texts(doc, ["TMP_TXT"])}
+    assert got == {"H-350X350X12X19", "갱의실(여)A"}
+
+    # 막으면 방 이름만 남는다
+    got = {t for _x, _y, t, _h in
+           iter_label_texts(doc, ["TMP_TXT"], exclude_blocks="기둥")}
+    assert got == {"갱의실(여)A"}
+
+
+def test_제외_규칙이_없으면_예전대로_다_읽는다():
+    """exclude_blocks 를 안 주면 동작이 바뀌지 않는다(기존 프로파일 보호)."""
+    doc = ezdxf.new()
+    doc.layers.add("RM")
+    blk = doc.blocks.new("아무블록")
+    blk.add_text("타정실", dxfattribs={"layer": "RM", "insert": (0, 0)})
+    doc.modelspace().add_blockref("아무블록", (0, 0))
+
+    assert len(list(iter_label_texts(doc, ["RM"]))) == 1

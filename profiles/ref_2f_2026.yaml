@@ -1,0 +1,102 @@
+# ref_2f_2026.yaml - 새 참고도면(다른 시설 2층) 프로파일
+#
+# 왜 이 시설을 등록하나
+#   기준 시설(내용고형제)에는 **등급도 절대압력도 도면에 없다.**
+#   그래서 PRES-001/002 · ADJ-001 을 실제 데이터로 검증할 방법이 없었다.
+#   이 도면에는 **등급 49 · 절대압력 45 · 화살표 39** 가 다 있다.
+#   → 규칙이 진짜 도는지 여기서 검증하고, 그 방법을 기준 시설로 가져간다.
+#
+# 도면 구조 (기준 시설과 크게 다르다 — 프로파일만으로 흡수되는지가 시험대다)
+#   - 원본은 한 DXF 에 **6장이 나란히** 있다 → scripts/cut_ref_sheet.py 로 시트를 잘라 씀
+#   - 방 라벨이 **블록 안**에 있다(3단 중첩) → ingest/dxftext.py 의 블록 재귀가 처리
+#   - 라벨 블록 구조: [등급 / 이름 / 방번호 / 절대압력] 세로 4단
+profile_id: ref_2f_2026
+profile_version: "1"
+description: "참고도면 2층(무균+고형 혼재). 등급·절대압력·화살표가 모두 표기된 시설."
+
+# 방번호 첫자리 → 층. 이 도면은 F2I01 / F2P03 / F2G01 형식이라 숫자 층 매핑이 안 통한다.
+# floor_from_number 가 못 풀면 None 이 되고, 그러면 층 구분 없이 동작한다(문제 없음).
+floors:
+  "2": 2F
+
+label_entity_types: [TEXT, MTEXT]
+
+floorplan:
+  # 블록 안의 레이어들. iter_label_texts 가 블록을 재귀로 내려가 읽는다.
+  room_layers: [ROOMNUMBER, RoomName]
+  room_no_regex: '^(F\d[A-Z]\d{2})$'      # F2I01, F2P03, F2G01
+  bare_no_regex: '^\d{4}$'                # 2001, 2029 (기존 구역)
+  max_match_dist_mm: 4000
+  name_above_max_mm: 2000                 # 이름은 번호 바로 위
+  name_above_penalty: 1000
+  skip_names: [UP, DN, SOB, "S.O.B", C/P, P.S, PS]
+  title_attrib_tag: "도면명"
+  multiline_merge:
+    max_dy_mm: 600
+    max_dx_mm: 900
+
+grades:
+  # ★해치 색상이 아니라 **텍스트 라벨** `(D)` `(C)` `(B)` `(CNC)` `(NC)`
+  layers: [Grade]
+  max_match_dist_mm: 4000
+  below_penalty: 2.0        # 등급은 방번호 '위'에 있다. 아래쪽 등급엔 벌점
+
+pressure_value:
+  # 절대 정압. `25Pa` `0Pa`. TA(풍량)와 헷갈리면 안 되므로 정규식이 `Pa` 접미를 요구한다.
+  layers: [차압]
+  max_match_dist_mm: 5000
+  above_penalty: 2.0        # 압력은 방번호 '아래'가 기본. 좁으면 위로 밀린다(F2I08)
+
+pressure:
+  # 차압도 전용 라벨(기준 시설의 RM/TA 에 해당). 이 도면은 평면도와 차압도가 한 장이라
+  # 같은 레이어를 쓴다.
+  rm_layer: ROOMNUMBER
+  ta_layer: 풍량            # 이송 공기량(CMH). 압력이 아니다.
+  ta_unit: CMH             # ★기준 시설과 달리 여기선 확정이다(도면 범례에 CMH 명시)
+  title_layers: [TEXT]
+  floor_regex: '(\d)층'
+  ref_pressure_token: "Pa"
+  name_match_dist_mm: 3000
+  multiline_merge:
+    max_dy_mm: 600
+    max_dx_mm: 900
+  # ★화살표가 **레이어로 종류까지 구분**돼 있다(도면 범례 3종과 일치):
+  #     Air Flow 10Pa   (25) - 등급이 다른 구간 (범례: 10~15Pa)
+  #     Air Flow 15Pa   (13) - 동일 등급 구간   (범례: 5~10Pa)
+  #     Air Flow no차압 ( 1) - 차압계 불필요
+  #   회전각(0/90/180/270)이 방향이다. 래스터 추측이 필요 없다.
+  arrow_layers: ["Air Flow 10Pa", "Air Flow 15Pa", "Air Flow no차압"]
+  arrow_block_prefix: ""    # 블록 이름이 아니라 레이어로 고른다
+
+boundaries:
+  # 벽은 평면도 블록 안에 있다(3단 중첩, 전부 레이어 '0' → INSERT 레이어 상속).
+  # ★방 라벨의 **네모 박스 블록**은 장벽에서 빼야 한다. 안 그러면 fill 이 라벨 안에 갇힌다.
+  wall_layers: ["ARCH-변경"]        # 평면도 블록이 얹힌 레이어(안쪽 '0' 이 이걸 상속)
+  skip_blocks: ["B20260107094054"]  # 방 라벨 박스 (51개 × 5선)
+  cell_mm: 60
+  close_gap_mm: 200                 # 작게. 크면 작은 방(전실 2~4㎡)을 삼킨다
+  adj_gap_mm: 300                   # 건너뛸 벽 두께(반경). close_gap 과 분리
+  min_area_m2: 0.8
+  max_area_m2: 400
+
+pressure_regime:
+  # 이름 추론이 틀릴 때 방번호로 덮어쓴다. (regime_source='profile' 로 감사에 남는다)
+  overrides: {}
+
+grade_rank: {A: 5, B: 4, C: 3, D: 2, CNC: 1, NC: 0}
+
+equipment:
+  layers: []          # 이 시트에는 장비가 없다
+
+hvac:
+  ahu_layers: []
+
+overview:
+  enabled: false
+
+# ★블록 재귀(iter_label_texts)가 들어가면 안 되는 블록.
+#   `SC2(기둥)` `SC3[기둥]` 안에는 철골 규격(`H-350X350X12X19`)이 들어 있고,
+#   하필 그 텍스트가 방 이름 레이어(TMP_TXT)에 얹혀 있다.
+#   막지 않으면 방 4107 의 이름이 통째로 'SC2 H-350X350X12X19' 가 되고,
+#   방 3205 는 'SC2 H-350X350X12X19 갱의실(여)A' 로 이름 앞에 규격이 붙는다.
+label_exclude_blocks: "기둥"

@@ -48,10 +48,21 @@ class PressureRel:
 
     approx=True 는 화살표 기하만 있고 두 방 귀속이 확정되지 않은 원시 상태.
     room_high_no / room_low_no 가 채워져야(=방 귀속 확정) 규칙이 판정한다.
+
+    아래 3개는 migration 008.
+      head_deg    : 화살촉의 **세계 각도**(블록 기하에서 잰 값. 회전각 가정이 아니다).
+                    None = 화살촉을 못 읽음 → 추측하지 않고 규칙이 건너뛴다.
+      layer       : 화살표가 놓인 레이어. 이름이 곧 차압 설정값이다.
+                    'Air Flow 10Pa' / 'Air Flow 15Pa' / 'Air Flow no차압'
+      setpoint_pa : 레이어에서 읽은 목표 차압. None + layer 에 'no차압' →
+                    **차압 기준이 없는 구간**(도면 범례 3번). 기준을 들이대면 거짓 위반이다.
     """
     room_high_no: str | None = None
     room_low_no: str | None = None
     approx: bool = False
+    head_deg: float | None = None
+    layer: str | None = None
+    setpoint_pa: float | None = None
 
 
 @dataclass(frozen=True)
@@ -83,14 +94,16 @@ def load_pressure_rels(cur, run_id: str) -> list[PressureRel]:
     room_high/room_low 가 NULL 이면(현재 원시 상태) 방번호도 None → 규칙이 건너뛴다.
     """
     cur.execute(
-        """SELECT rh.room_no, rl.room_no, pr.approx
+        """SELECT rh.room_no, rl.room_no, pr.approx,
+                  pr.head_deg, pr.layer, pr.setpoint_pa
              FROM pressure_relation pr
              LEFT JOIN room rh ON rh.id = pr.room_high
              LEFT JOIN room rl ON rl.id = pr.room_low
             WHERE pr.run_id=%s""",
         (run_id,),
     )
-    return [PressureRel(room_high_no=r[0], room_low_no=r[1], approx=bool(r[2]))
+    return [PressureRel(room_high_no=r[0], room_low_no=r[1], approx=bool(r[2]),
+                        head_deg=r[3], layer=r[4], setpoint_pa=r[5])
             for r in cur.fetchall()]
 
 

@@ -30,7 +30,9 @@ class FakeDoc:
 
 
 def _patch(monkeypatch, module, texts):
-    def fake_iter(doc, layers, entity_types):
+    # **kwargs: 추출기가 exclude_blocks 같은 인자를 넘겨도 시험이 깨지지 않게.
+    # (블록 재귀가 기둥 블록의 철골 규격을 방 이름으로 빨아들여 exclude_blocks 가 생겼다)
+    def fake_iter(doc, layers, entity_types=None, **_kw):
         for t in texts:
             if t.layer in layers:
                 yield (t.x, t.y, t.t, 100.0)
@@ -83,6 +85,32 @@ def test_grade_등급표기_없으면_0건(monkeypatch):
     texts = [FakeText(0, 200, "타정실"), FakeText(0, 100, "F2I01")]
     _patch(monkeypatch, G, texts)
     assert GradeExtractor().extract(FakeDoc(texts), PROFILE) == []
+
+
+def test_grade_등급과_방번호가_다른_레이어에_있어도_붙는다(monkeypatch):
+    """★실제 도면에서 등급 0건이 나온 버그.
+
+    새 참고도면은 등급이 `Grade` 레이어, 방번호가 `ROOMNUMBER` 레이어에 있다.
+    처음엔 **등급 레이어 하나에서 둘 다** 찾았다 → 방번호가 0개라 등급도 0건.
+    (압력 추출기는 처음부터 레이어를 나눠 읽어 44건이 잘 나왔다. 같은 실수를 등급에서 했다.)
+    """
+    import gxpai.ingest.extractors.grades as G
+    texts = [
+        FakeText(0, 300, "(D)", layer="Grade"),          # 등급은 Grade 레이어
+        FakeText(0, 100, "F2I03", layer="ROOMNUMBER"),   # 방번호는 다른 레이어
+    ]
+    _patch(monkeypatch, G, texts)
+    prof = {
+        "floorplan": {"room_layers": ["ROOMNUMBER"],
+                      "room_no_regex": r"^(F\d[A-Z]\d{2})$",
+                      "bare_no_regex": r"^\d{4}$"},
+        "grades": {"layers": ["Grade"]},
+        "label_entity_types": ["TEXT"],
+    }
+    recs = GradeExtractor().extract(FakeDoc(texts), prof)
+    assert len(recs) == 1
+    assert recs[0].payload == {**recs[0].payload,
+                               "room_no": "F2I03", "grade": "D"}
 
 
 def test_grade_전각괄호도_읽는다(monkeypatch):

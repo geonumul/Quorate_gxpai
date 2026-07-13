@@ -214,6 +214,28 @@ def test_pres002_동일등급_기준초과를_잡는다():
     assert v[0]["evidence"]["delta_pa"] == 15
 
 
+def test_pres002_차압_설정_구간만_검사한다():
+    """★실제 도면에서 과잉 검출한 버그.
+
+    처음엔 **인접한 모든 실 쌍**에 기준을 들이댔다 → Δ0Pa(같은 등급·같은 압력) 쌍을
+    무더기로 위반으로 찍었다(28건 중 상당수).
+    도면 범례 3번: *"기류흐름 및 차압계 설치가 요구되지 않는 위치"*.
+    **차압이 설정되지 않은 구간에는 기준이 애초에 적용되지 않는다.**
+    """
+    rooms = [RoomView(room_no="A", name="포장실", grade="CNC", pressure_pa=10),
+             RoomView(room_no="B", name="세척실", grade="CNC", pressure_pa=10)]
+    adj = [AdjPair("A", "B")]
+
+    # 화살표가 없다 = 차압 설정 구간이 아니다 → 위반 아님
+    assert pres_002.evaluate(adj, rooms, CFG2, rels=[]) == []
+    assert pres_002.evaluate(adj, rooms, CFG2, rels=None) != []   # 화살표 정보가 없으면 예전 동작
+
+    # 화살표가 있으면 검사한다 → Δ0Pa 는 사내 기준(5~10) 밖
+    rels = [PressureRel(room_high_no="A", room_low_no="B")]
+    v = pres_002.evaluate(adj, rooms, CFG2, rels=rels)
+    assert len(v) == 1 and v[0]["evidence"]["delta_pa"] == 0
+
+
 def test_pres002_등급상이_정상범위는_통과():
     rooms = [RoomView(room_no="A", name="조제실", grade="C", pressure_pa=25),
              RoomView(room_no="B", name="갱의실", grade="D", pressure_pa=15)]

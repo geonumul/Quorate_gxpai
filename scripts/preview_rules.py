@@ -19,7 +19,8 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.stdout.reconfigure(encoding="utf-8")
 
-from gxpai.compliance.checks import adj_001, pres_001, pres_002, pres_003  # noqa: E402
+from gxpai.compliance.checks import (adj_001, pres_001, pres_002,  # noqa: E402
+                                     pres_003, pres_004)
 from gxpai.compliance.checks._model import (load_adjacency, load_pressure_rels,  # noqa: E402
                                             load_rooms)
 from gxpai.core.db import connect  # noqa: E402
@@ -52,8 +53,9 @@ print(f"  인접 {len(adj)}쌍\n")
 
 CHECKS = [
     ("PRES-001", lambda c: pres_001.evaluate(rels, rooms, c)),
-    ("PRES-002", lambda c: pres_002.evaluate(adj, rooms, c)),
+    ("PRES-002", lambda c: pres_002.evaluate(adj, rooms, c, rels)),
     ("PRES-003", lambda c: pres_003.evaluate(rels, adj, rooms, c)),
+    ("PRES-004", lambda c: pres_004.evaluate(rels, rooms, c)),
     ("ADJ-001", lambda c: adj_001.evaluate(adj, rooms, c)),
 ]
 

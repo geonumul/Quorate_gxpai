@@ -62,8 +62,9 @@ class PressureValueExtractor(BaseExtractor):
 
         # 압력 텍스트는 전용 레이어, 방번호는 라벨 레이어에 있을 수 있다 → 둘 다 훑는다
         num_layers = fp.get("room_layers") or layers
-        pa_texts = list(iter_label_texts(doc, layers, entity_types))
-        no_texts = list(iter_label_texts(doc, num_layers, entity_types))
+        _skip = profile.get("label_exclude_blocks")
+        pa_texts = list(iter_label_texts(doc, layers, entity_types, exclude_blocks=_skip))
+        no_texts = list(iter_label_texts(doc, num_layers, entity_types, exclude_blocks=_skip))
 
         pas: list[tuple[float, float, float]] = []
         for x, y, t, _h in pa_texts:

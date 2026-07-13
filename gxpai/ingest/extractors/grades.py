@@ -62,15 +62,21 @@ class GradeExtractor(BaseExtractor):
         max_d = float(gcfg.get("max_match_dist_mm", DEFAULT_MAX_D))
         below_penalty = float(gcfg.get("below_penalty", DEFAULT_BELOW_PENALTY))
 
-        texts = list(iter_label_texts(doc, layers, entity_types))
+        # ★등급과 방번호는 **다른 레이어**에 있다 (Grade / ROOMNUMBER).
+        #   처음엔 등급 레이어 하나에서 둘 다 찾았다 → 방번호가 0개라 등급도 0건이 나왔다.
+        #   (압력 추출기는 처음부터 레이어를 나눠 읽어서 44건이 잘 나왔다. 같은 실수를 여기서 했다.)
+        num_layers = fp.get("room_layers") or layers
 
-        numbers: list[tuple[float, float, str]] = []
         grades: list[tuple[float, float, str]] = []
-        for x, y, t, _h in texts:
+        _skip = profile.get("label_exclude_blocks")
+        for x, y, t, _h in iter_label_texts(doc, layers, entity_types, exclude_blocks=_skip):
             m = GRADE_RE.match(t.strip())
             if m:
                 grades.append((x, y, m.group(1).upper()))
-                continue
+
+        numbers: list[tuple[float, float, str]] = []
+        for x, y, t, _h in iter_label_texts(doc, num_layers, entity_types,
+                                            exclude_blocks=_skip):
             if num_re:
                 mm = num_re.match(t)
                 if mm:

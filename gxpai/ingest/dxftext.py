@@ -70,7 +70,8 @@ def _effective_layer(entity, parent_layer: str | None) -> str:
     return lay
 
 
-def iter_label_texts(doc, layers, entity_types=("TEXT", "MTEXT"), max_depth: int = 6):
+def iter_label_texts(doc, layers, entity_types=("TEXT", "MTEXT"), max_depth: int = 6,
+                     exclude_blocks: str | None = None):
     """지정 레이어의 보이는 TEXT/MTEXT를 (x, y, text, height) 로 순회 (R-A1/A2/S-10).
 
     ★**블록(INSERT) 안까지 재귀로 들어간다. 좌표는 세계좌표로 변환한다.**
@@ -81,14 +82,29 @@ def iter_label_texts(doc, layers, entity_types=("TEXT", "MTEXT"), max_depth: int
       모델스페이스만 훑던 예전 코드는 **아무것도 못 봤다** — 추출기 전체가 0건을 냈다.
       CAD 도면은 블록 중첩이 기본이다(이 도면은 3단). 모델스페이스만 보는 건 반쪽짜리다.
 
+    ★그런데 재귀를 켜자 **딸려오지 말아야 할 것**이 딸려왔다(exclude_blocks 로 막는다):
+      기준 시설 평면도의 블록 `SC2(기둥)` · `SC3[기둥]` 안에는
+      `SC2` `H-350X350X12X19` 같은 **철골 기둥 규격**이 들어 있고, 하필 그 텍스트가
+      방 이름 레이어(`TMP_TXT`)에 얹혀 있다. 그래서
+        · 방 4107 의 이름이 통째로 `SC2 H-350X350X12X19` 가 됐고
+        · 방 3205 는 `SC2 H-350X350X12X19 갱의실(여)A` 로 **이름 앞에 규격이 붙었다**
+      LBL-001(이름 불일치)이 3건 → 4건으로 늘어 기준값이 깨진 것으로 들통났다.
+      **숫자 하나가 어긋난 것을 그냥 넘겼으면 방 이름이 조용히 오염된 채로 갔다.**
+
     레이어 필터는 **실효 레이어**로 한다(블록 안 '0' 은 INSERT 의 레이어를 상속).
+
+    exclude_blocks: 블록 이름 정규식. 걸리면 그 블록 안으로 **들어가지 않는다**.
+                    (기둥·치수·범례처럼 방 라벨이 아닌 것이 사는 블록)
     """
+    import re
+
     from ezdxf.math import Matrix44
 
     if isinstance(layers, str):          # 프로파일이 "RM" 처럼 문자열이면 문자로 쪼개짐 방지
         layers = [layers]
     layers = set(layers)
     types = tuple(entity_types)
+    skip_re = re.compile(exclude_blocks) if exclude_blocks else None
 
     def walk(container, mat: Matrix44 | None, parent_layer: str | None, depth: int):
         for e in container:
@@ -96,6 +112,8 @@ def iter_label_texts(doc, layers, entity_types=("TEXT", "MTEXT"), max_depth: int
             if t == "INSERT":
                 if depth >= max_depth:
                     continue            # 순환 참조·과도한 중첩 방어
+                if skip_re is not None and skip_re.search(e.dxf.name):
+                    continue            # 기둥·치수 등 방 라벨이 아닌 블록
                 blk = None
                 try:
                     blk = doc.blocks.get(e.dxf.name)

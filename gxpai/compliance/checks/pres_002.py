@@ -26,17 +26,30 @@
 """
 from __future__ import annotations
 
-from ._model import AdjPair, RoomView, load_adjacency, load_rooms
+from ._model import (AdjPair, PressureRel, RoomView, load_adjacency,
+                     load_pressure_rels, load_rooms)
 from ._regime import NEUTRAL, resolve_regime
 
 
-def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict) -> list[dict]:
-    """자사 기준서(프로파일) 범위를 벗어난 인접 실 쌍을 위반으로 반환."""
+def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
+             rels: list[PressureRel] | None = None) -> list[dict]:
+    """자사 기준서(프로파일) 범위를 벗어난 **차압 설정 구간**을 위반으로 반환.
+
+    ★적용 범위가 핵심이다 — 처음엔 **인접한 모든 실 쌍**에 기준을 들이댔다가 과잉 검출했다.
+      실제 도면에서 `Δ0Pa`(같은 등급·같은 압력) 쌍을 무더기로 위반으로 찍었다.
+      그런데 **도면 범례 3번**이 명시한다: *"기류흐름 및 차압계 설치가 요구되지 않는 위치"*.
+      **차압이 설정되지 않은 구간에는 차압 기준이 애초에 적용되지 않는다.**
+
+      → `rels`(차압 화살표)가 주어지면 **화살표가 있는 실 쌍만** 검사한다.
+        rels 가 없으면(=화살표 데이터가 없는 시설) 예전처럼 인접 전체를 본다.
+    """
     # 자사 기준서: 등급이 다를 때 / 같을 때의 허용 차압 범위 [min, max]
     diff_range = cfg.get("diff_grade_pa")     # 예: [10, 15]
     same_range = cfg.get("same_grade_pa")     # 예: [5, 10]
     statutory_min = cfg.get("statutory_min_pa")   # 고시 참고치(무균). 경고용
     overrides = cfg.get("regime_overrides", {}) or {}
+    # 도면 설정값과 실제 차압의 허용오차(Pa). 설계 도면의 반올림·표기 관행을 흡수한다.
+    tol = cfg.get("setpoint_tolerance_pa", 5)
 
     view = {r.room_no: r for r in rooms if r.room_no}
 
@@ -58,6 +71,33 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict) -> list[dict]
             }]
         return []
 
+    # ── 어느 구간을 검사할 것인가 ──────────────────────────────
+    # 차압이 **설정된** 구간(화살표가 있는 실 쌍)만 검사한다.
+    # ★`rels=[]`(화살표가 하나도 없다)와 `rels=None`(화살표 데이터 자체가 없다)은 **다르다.**
+    #   `if rels:` 로 쓰면 빈 리스트가 falsy 라 '정보 없음'으로 취급돼 인접 전체를 검사한다.
+    #   시험이 이 실수를 잡았다.
+    #
+    # ★그리고 **도면이 구간마다 목표 차압을 직접 말해준다** — 화살표 레이어 이름이
+    #   'Air Flow 10Pa' / 'Air Flow 15Pa' / 'Air Flow no차압' 이다.
+    #   처음엔 이걸 통째로 버리고 프로파일의 등급별 범위만 썼다. 도면에 답이 적혀 있는데
+    #   짐작으로 판정한 셈이다. 이제 **도면 설정값이 있으면 그것을 기준으로 삼는다**
+    #   (설계사가 정한 값 = 사실상의 자사 기준). 없을 때만 프로파일 범위로 폴백한다.
+    metered: set[tuple[str, str]] | None = None
+    setpoint: dict[tuple[str, str], float] = {}   # 구간 → 도면이 적어둔 목표 차압
+    nospec: set[tuple[str, str]] = set()          # 'no차압' = 차압 기준이 없는 구간
+    if rels is not None:
+        metered = set()
+        for r in rels:
+            if r.approx or not r.room_high_no or not r.room_low_no:
+                continue
+            k = tuple(sorted((r.room_high_no, r.room_low_no)))
+            metered.add(k)
+            if r.setpoint_pa is not None:
+                # 같은 구간에 화살표가 둘이면 큰 쪽(엄격한 쪽)을 남긴다
+                setpoint[k] = max(setpoint.get(k, 0.0), r.setpoint_pa)
+            elif r.layer and "no차압" in r.layer.replace(" ", ""):
+                nospec.add(k)
+
     out: list[dict] = []
     seen: set[tuple[str, str]] = set()
 
@@ -68,17 +108,42 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict) -> list[dict]
         key = tuple(sorted((a, b)))
         if key in seen:
             continue
+        if metered is not None and key not in metered:
+            continue          # 차압 설정 구간이 아니다 (도면 범례 3번)
+        if key in nospec:
+            continue          # 'no차압' = 차압계 설치가 요구되지 않는 위치. 기준 자체가 없다
         ra, rb = view[a], view[b]
         if ra.pressure_pa is None or rb.pressure_pa is None:
             continue
         # 압력 관리 대상이 아닌 공간(보관소·기계실 등)은 제외
         if regime_of(a) == NEUTRAL or regime_of(b) == NEUTRAL:
             continue
-        if not ra.grade or not rb.grade:
-            continue
         seen.add(key)
 
         d = abs(ra.pressure_pa - rb.pressure_pa)
+
+        # ── ① 도면이 목표 차압을 적어뒀다면 그것이 기준이다 ──────────
+        sp = setpoint.get(key)
+        if sp is not None:
+            if abs(d - sp) <= tol:
+                continue
+            out.append({
+                "severity": "major",
+                "rooms": [a, b],
+                "message": (f"차압 설정값 불일치: {a}({ra.pressure_pa:g}Pa) ↔ "
+                            f"{b}({rb.pressure_pa:g}Pa) = Δ{d:g}Pa 인데, "
+                            f"도면이 이 구간에 지정한 차압은 {sp:g}Pa 다"),
+                "evidence": {"room_a": a, "pa_a": ra.pressure_pa,
+                             "room_b": b, "pa_b": rb.pressure_pa,
+                             "delta_pa": d, "setpoint_pa": sp, "허용오차": tol,
+                             "근거": "도면 화살표 레이어가 지정한 차압 설정값 vs 방별 절대압력",
+                             "판단": "보류. 도면 오기인지 설계 의도인지 발주처 확인 필요"},
+            })
+            continue
+
+        # ── ② 설정값이 없으면 프로파일(사내 기준서) 범위로 폴백 ──────
+        if not ra.grade or not rb.grade:
+            continue
         same = ra.grade == rb.grade
         rng = same_range if same else diff_range
         if rng is None:
@@ -119,4 +184,5 @@ def run(cur, run_id, facility_id, rule) -> list[dict]:
     cfg = rule.get("config", {}) or {}
     if not cfg.get("enabled"):
         return []
-    return evaluate(load_adjacency(cur, run_id), load_rooms(cur, run_id), cfg)
+    return evaluate(load_adjacency(cur, run_id), load_rooms(cur, run_id), cfg,
+                    load_pressure_rels(cur, run_id))

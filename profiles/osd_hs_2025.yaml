@@ -67,3 +67,10 @@ overview:                                # 설계개요 표 → facility 메타 
 grades:
   # hatch_color_to_grade: {}            # Grade DXF 미수령 - T1.2.4 스켈레톤, question 등록됨
   status: pending_data
+
+# ★블록 재귀(iter_label_texts)가 들어가면 안 되는 블록.
+#   `SC2(기둥)` `SC3[기둥]` 안에는 철골 규격(`H-350X350X12X19`)이 들어 있고,
+#   하필 그 텍스트가 방 이름 레이어(TMP_TXT)에 얹혀 있다.
+#   막지 않으면 방 4107 의 이름이 통째로 'SC2 H-350X350X12X19' 가 되고,
+#   방 3205 는 'SC2 H-350X350X12X19 갱의실(여)A' 로 이름 앞에 규격이 붙는다.
+label_exclude_blocks: "기둥"
