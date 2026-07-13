@@ -67,9 +67,16 @@ class PressureRel:
 
 @dataclass(frozen=True)
 class AdjPair:
-    """인접한 두 방(번호)."""
+    """인접한 두 방(번호).
+
+    via_door: **문으로 이어졌는가**(동선). migration 009.
+        True  = 문이 있다 → 사람이 오간다. ADJ-001(등급 급변)이 판정한다
+        False = 벽만 맞댔다 → 오갈 수 없다. 동선 위반이 아니다
+        None  = 문 데이터가 없는 도면 → 판정 불가. 벽 인접으로 폴백하되 근거에 남긴다
+    """
     a: str
     b: str
+    via_door: bool | None = None
 
 
 def load_rooms(cur, run_id: str) -> list[RoomView]:
@@ -110,12 +117,12 @@ def load_pressure_rels(cur, run_id: str) -> list[PressureRel]:
 def load_adjacency(cur, run_id: str) -> list[AdjPair]:
     """room_adjacency(방 id 쌍) → 방번호 쌍으로 변환해 적재."""
     cur.execute(
-        """SELECT ra.room_no, rb.room_no
+        """SELECT ra.room_no, rb.room_no, adj.via_door
              FROM room_adjacency adj
              JOIN room ra ON ra.id = adj.room_a
              JOIN room rb ON rb.id = adj.room_b
             WHERE adj.run_id=%s""",
         (run_id,),
     )
-    return [AdjPair(a=r[0], b=r[1]) for r in cur.fetchall()
+    return [AdjPair(a=r[0], b=r[1], via_door=r[2]) for r in cur.fetchall()
             if r[0] is not None and r[1] is not None]

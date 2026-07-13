@@ -49,10 +49,27 @@ def evaluate(adjacency: list[AdjPair], rooms: list[RoomView], cfg: dict) -> list
     out: list[dict] = []
     seen: set[frozenset] = set()
 
+    # ★**문으로 이어진 쌍만** 판정한다 (via_door). 조문이 말하는 건 벽이 아니라 **동선**이다.
+    #
+    #   고시 별표1 제4호 타목  : "작업원 **동선**은 D→C→B 로 점진적"
+    #   고시 별표17 제3.3호 라목: "청정도에 따른 타당한 순서로 **연결된** 구역에 배치"
+    #
+    #   벽만 맞대고 문이 없으면 사람이 오갈 수 없다 → 등급이 급변해도 동선 위반이 아니다.
+    #   벽 맞댐으로 판정하면 **지나갈 수도 없는 두 방**을 '등급 급변'이라 우긴다.
+    #   참고도면에서 근사 인접(101쌍)을 진짜 벽 인접(42쌍)으로 바꾸자 9건 → 4건이 됐다.
+    #   문 인접으로 한 번 더 좁히면 여기서 또 줄어든다.
+    #
+    #   ⚠ via_door 가 **None** 이면 문 데이터가 없는 도면이다(참고도면).
+    #     이때는 벽 인접으로 폴백하되, 근거에 "문 정보 없음"을 남긴다.
+    #     **판정을 포기하지도, 확정하지도 않는다.**
+    has_door_data = any(p.via_door is not None for p in adjacency)
+
     for pair in adjacency:
         a, b = pair.a, pair.b
         if a not in view or b not in view:
             continue
+        if has_door_data and pair.via_door is False:
+            continue                      # 벽만 맞댔다 — 오갈 수 없으니 동선 위반이 아니다
         key = frozenset((a, b))
         if key in seen:
             continue                      # 인접은 양방향 저장될 수 있다
@@ -83,14 +100,17 @@ def evaluate(adjacency: list[AdjPair], rooms: list[RoomView], cfg: dict) -> list
             continue
         jump = abs(rank[ga] - rank[gb])
         if jump > max_jump:
+            via = ("문으로 이어짐(동선 확인)" if pair.via_door
+                   else "문 정보 없는 도면 — 벽 맞댐으로 판정. **문이 없으면 위반이 아닐 수 있다**")
             out.append({
                 "severity": "critical",
                 "rooms": sorted((a, b)),
                 "message": (f"청정등급 급변: {a}(등급 {ga}) ↔ {b}(등급 {gb}) 가 "
                             f"에어락/전실 없이 직접 인접 (등급 {jump}단계 차, 허용 {max_jump})"),
                 "evidence": {"pair": sorted((a, b)), "grades": [ga, gb], "jump": jump,
-                             "max_jump": max_jump,
-                             "근거": "고시 별표1 제4호 타목 — 동선은 D→C→B 로 점진적"},
+                             "max_jump": max_jump, "via_door": pair.via_door, "인접근거": via,
+                             "근거": "고시 별표1 제4호 타목 — 동선은 D→C→B 로 점진적",
+                             "판단": "보류. 발주처 확인 필요"},
             })
     return out
 

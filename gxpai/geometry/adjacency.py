@@ -15,11 +15,17 @@ import math
 from ..core.db import connect
 
 
-def load_pairs(run_id: str, pairs: list[tuple[str, str]], method: str = "polygon") -> int:
+def load_pairs(run_id: str, pairs: list[tuple[str, str]], method: str = "polygon",
+               door_pairs: list[tuple[str, str]] | None = None) -> int:
     """방번호 쌍 목록을 room_adjacency 에 적재한다(정밀 인접).
 
     boundaries.build() 가 돌려준 (room_no, room_no) 쌍을 방 id 로 바꿔 넣는다.
     기존 근사 간선은 지운다 — 두 방법이 섞이면 어느 것을 믿을지 알 수 없다.
+
+    door_pairs: **문으로 이어진** 쌍(동선). via_door 로 표시한다.
+      None 이면 문 데이터가 없는 도면 → via_door 를 NULL 로 둔다(판정 불가).
+      조문은 "작업원 **동선**"·"**연결된** 구역"을 말한다. 벽만 맞대고 문이 없으면
+      사람이 오갈 수 없으니 등급이 급변해도 동선 위반이 아니다.
     """
     with connect() as conn, conn.cursor() as cur:
         cur.execute(
@@ -35,11 +41,22 @@ def load_pairs(run_id: str, pairs: list[tuple[str, str]], method: str = "polygon
                 continue                       # 경계는 잡혔는데 방이 없다 = 있을 수 없음
             edges.add((ia, ib) if ia < ib else (ib, ia))
 
+        door_edges: set[tuple[int, int]] | None = None
+        if door_pairs is not None:
+            door_edges = set()
+            for a, b in door_pairs:
+                ia, ib = id_by.get(a), id_by.get(b)
+                if ia is None or ib is None:
+                    continue
+                door_edges.add((ia, ib) if ia < ib else (ib, ia))
+
         cur.execute("DELETE FROM room_adjacency WHERE run_id=%s", (run_id,))
         for a, b in edges:
+            via = None if door_edges is None else ((a, b) in door_edges)
             cur.execute(
-                "INSERT INTO room_adjacency (run_id, room_a, room_b, method) VALUES (%s,%s,%s,%s)",
-                (run_id, a, b, method),
+                """INSERT INTO room_adjacency (run_id, room_a, room_b, method, via_door)
+                   VALUES (%s,%s,%s,%s,%s)""",
+                (run_id, a, b, method, via),
             )
         conn.commit()
         return len(edges)

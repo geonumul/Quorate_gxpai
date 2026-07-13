@@ -48,7 +48,12 @@ class RoomRegion:
 @dataclass
 class BoundaryResult:
     rooms: list[RoomRegion] = field(default_factory=list)
+    # 벽을 맞댄 방 쌍 (구획·차압 검사용)
     adjacency: list[tuple[str, str]] = field(default_factory=list)
+    # ★**문으로 이어진** 방 쌍 (동선 검사용 — ADJ-001 이 써야 하는 것).
+    #   조문은 "작업원 **동선**"·"**연결된** 구역"을 말한다. 벽만 맞대고 문이 없으면
+    #   사람이 오갈 수 없으니 동선 위반이 아니다. 문 데이터가 없는 도면에서는 비어 있다.
+    door_adjacency: list[tuple[str, str]] = field(default_factory=list)
     cell_mm: float = 50.0
     failed: list[str] = field(default_factory=list)
 
@@ -288,12 +293,12 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
     # 어느 끝이 닫힌 위치인지는 **방금 만든 벽 격자에게 물어본다** — 닫힌 문의 끝은
     # 반대쪽 문설주(벽)에 닿고, 열린 문의 끝은 방 한가운데 떠 있다.
     # 각도로 추측하지 않는다(회전·거울반사에 또 당한다. 차압 화살표에서 겪었다).
-    n_doors = 0
+    door_segs: list[tuple[float, float, float, float]] = []
     if door_layers and cfg.get("seal_doors", True):
         from .door_barriers import door_barriers
-        for x0, y0, x1, y1 in door_barriers(doc, list(door_layers), walls, minx, miny, cell):
+        door_segs = door_barriers(doc, list(door_layers), walls, minx, miny, cell)
+        for x0, y0, x1, y1 in door_segs:
             _draw_line(walls, gx(x0), gy(y0), gx(x1), gy(y1))
-            n_doors += 1
 
     # 남은 틈 메우기(문 자리 등). 닫기(closing)=팽창 후 침식 → 얇은 틈만 메운다.
     k = max(1, int(round(close_gap / cell)))
@@ -374,4 +379,41 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
             a, b = names[i], names[j]
             if (dil[a] & own[b]).any() or (dil[b] & own[a]).any():
                 res.adjacency.append((a, b))
+
+    # ── 문으로 이어진 인접 (동선) ───────────────────────────────
+    # ★위의 `adjacency` 는 **벽을 맞댄** 방이다. 그런데 조문이 말하는 건 그게 아니다.
+    #
+    #   고시 별표1 제4호 타목: "작업원 **동선**은 D→C→B 로 점진적"
+    #   고시 별표17 제3.3호 라목: "청정도에 따른 타당한 순서로 **연결된** 구역에 배치"
+    #
+    #   둘 다 **사람·물건이 오가는 길**을 말한다. 벽만 맞대고 문이 없으면 오갈 수 없다.
+    #   벽 맞댐으로 ADJ-001 을 판정하면 **지나갈 수도 없는 두 방**을 '등급 급변'이라 우긴다.
+    #
+    #   → 문 장벽의 **양옆**을 찍어 두 방을 읽는다. 그것이 동선 인접이다.
+    #   문 데이터가 없는 도면(참고도면)에서는 비어 있다 → 규칙이 벽 인접으로 폴백한다.
+    if door_segs:
+        seen_d: set[tuple[str, str]] = set()
+        by_lid = {rr.mask_id: rr.room_no for rr in res.rooms}
+        probe = max(2, int(round(600.0 / cell)))     # 문 양옆 60cm 를 찍는다(벽 두께를 넘도록)
+        for x0, y0, x1, y1 in door_segs:
+            dx, dy = x1 - x0, y1 - y0
+            L = math.hypot(dx, dy)
+            if L < 1:
+                continue
+            nx, ny = -dy / L, dx / L                 # 문틀에 **수직**인 방향
+            mx, my = (x0 + x1) / 2, (y0 + y1) / 2    # 문 한가운데
+            side: list[str] = []
+            for s in (+1, -1):
+                px = gx(mx) + int(round(nx * probe * s))
+                py = gy(my) + int(round(ny * probe * s))
+                if not (0 <= py < h and 0 <= px < w):
+                    continue
+                no = by_lid.get(int(lab[py, px]))
+                if no:
+                    side.append(no)
+            if len(side) == 2 and side[0] != side[1]:
+                key = tuple(sorted(side))
+                if key not in seen_d:
+                    seen_d.add(key)
+                    res.door_adjacency.append(key)   # type: ignore[arg-type]
     return res

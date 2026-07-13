@@ -160,7 +160,13 @@ def ingest(facility_id: str) -> dict:
         # ★방 경계가 잡혔으면 **폴리곤 기반 정밀 인접**을 쓴다(최근접-k 근사보다 정확).
         #   근사 인접은 오탐/누락이 나서 ADJ-001·PRES-002/003 을 못 켰다.
         if boundary_res and boundary_res.adjacency:
-            n_adj = adjacency.load_pairs(run_id, boundary_res.adjacency, method="polygon")
+            # door_adjacency 가 비면(문 데이터 없는 도면) None 을 넘겨 via_door 를 NULL 로 둔다.
+            # 빈 리스트를 넘기면 "문이 하나도 없다"는 **거짓 사실**이 되어
+            # ADJ-001 이 모든 쌍을 '동선 아님'으로 보고 전부 무시해 버린다.
+            # (`rels=[]` vs `rels=None` 에서 똑같은 함정을 밟았다 — 없음과 비어있음은 다르다)
+            dpairs = boundary_res.door_adjacency or None
+            n_adj = adjacency.load_pairs(run_id, boundary_res.adjacency, method="polygon",
+                                         door_pairs=dpairs)
             adj_method = "polygon"
         else:
             n_adj = adjacency.build(run_id)
