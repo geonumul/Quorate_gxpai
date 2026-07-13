@@ -15,6 +15,7 @@ from psycopg.types.json import Json          # 방 경계 폴리곤을 JSONB 로
 
 from ..ingest.extractors.equipment import EquipmentExtractor
 from ..ingest.extractors.floorplan import FloorplanExtractor
+from ..ingest.extractors.gauge import GaugeExtractor
 from ..ingest.extractors.grades import GradeExtractor
 from ..ingest.extractors.hvac import HvacExtractor
 from ..ingest.extractors.overview import OverviewExtractor
@@ -55,6 +56,7 @@ def ingest(facility_id: str) -> dict:
     from ..ingest.extractors.pressure_value import PressureValueExtractor
 
     fp_ex, pr_ex = FloorplanExtractor(), PressureExtractor()
+    ga_ex = GaugeExtractor()
     eq_ex, hv_ex, gr_ex = EquipmentExtractor(), HvacExtractor(), GradeExtractor()
     ov_ex, pv_ex = OverviewExtractor(), PressureValueExtractor()
     floor_rooms: list[dict] = []
@@ -64,12 +66,14 @@ def ingest(facility_id: str) -> dict:
     overview: list[dict] = []
     arrows: list[dict] = []
     ta_values: list[dict] = []
+    gauges: list[dict] = []          # 차압계 위치 (별표1 4-너: 청정실 경계에 설치 의무)
     grade_recs: list[dict] = []      # 방번호 → 청정등급
     pa_recs: list[dict] = []         # 방번호 → 절대압력(Pa)
     floor_doc = None                 # 방 경계(벽) 추출용 평면도 DXF
     counts = {"floorplan": 0, "pressure": 0, "hvac": 0, "overview": 0,
               "ta_value": 0, "pressure_arrow": 0, "grade_zone": 0,
-              "room_grade": 0, "room_pressure": 0, "pressure_unmatched": 0}
+              "room_grade": 0, "room_pressure": 0, "pressure_unmatched": 0,
+              "gauge": 0}
 
     missing_files: list[str] = []
     for d in fac["drawings"]:
@@ -113,6 +117,13 @@ def ingest(facility_id: str) -> dict:
                     arrows.append(rec.payload)
                     counts["pressure_arrow"] += 1
             counts["pressure"] += 1
+        elif d["kind"] == "gauge":
+            # ★차압계 배치도. **다른 시트**라서 좌표를 기준 시트로 맞춰 잘라 둬야 한다
+            #   (scripts/cut_ref_sheet_aligned.py). 안 맞추면 전부 헛것이 된다.
+            doc = _read_dxf(str(path))
+            for rec in ga_ex.extract(doc, profile):
+                gauges.append(rec.payload)
+                counts["gauge"] += 1
         elif d["kind"] == "hvac":
             doc = _read_dxf(str(path))
             for rec in hv_ex.extract(doc, profile):
@@ -186,6 +197,10 @@ def ingest(facility_id: str) -> dict:
             n_adj = adjacency.build(run_id)
             adj_method = "nearest"
         n_plinks = pressure_links.build(run_id)
+        # ★차압 설정 구간에 **차압계가 있는가** (별표1 4-너: 청정실 경계에 설치 의무)
+        #   차압계 도면이 없는 시설이면 has_gauge 를 NULL 로 둔다 → PRES-005 는 판정하지 않는다.
+        #   빈 목록을 "차압계가 하나도 없다"로 오해하면 전 구간이 거짓 위반이 된다.
+        n_gauge = _attach_gauges(run_id, gauges) if gauges else 0
     except Exception as exc:  # noqa: BLE001 - 어떤 실패든 감사에 남긴다
         _finish_run(run_id, "failed", str(exc)[:2000])
         raise
@@ -201,6 +216,7 @@ def ingest(facility_id: str) -> dict:
         "n_ahu": len(ahus),
         "n_overview_items": len(overview),
         "n_pressure_arrows": len(arrows),
+        "n_gauges": len(gauges),
         "n_ta_values": len(ta_values),
         "n_adjacency": n_adj,
         "adjacency_method": adj_method,          # polygon(정밀) | nearest(근사)
@@ -302,6 +318,34 @@ def _nearest_room_id(x, y, room_points, max_d=8000):
         if d < max_d and (best_d is None or d < best_d):
             best, best_d = rid, d
     return best
+
+
+GAUGE_RADIUS_MM = 3000.0     # 화살표에서 이 거리 안의 차압계를 '그 구간의 것'으로 본다
+
+
+def _attach_gauges(run_id: str, gauges: list[dict]) -> int:
+    """차압 화살표마다 **근처에 차압계가 있는지** 표시한다.
+
+    화살표(=차압이 설정된 문 구간) 옆에 차압계가 있어야 그 차압을 유지·기록할 수 있다.
+    반경 안에 없으면 has_gauge=false. 청정실 경계라면 PRES-005 가 위반으로 본다.
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("SELECT id, evidence_x, evidence_y FROM pressure_relation WHERE run_id=%s",
+                    (run_id,))
+        rows = cur.fetchall()
+        n = 0
+        for pr_id, ex, ey in rows:
+            best, bk = None, None
+            for g in gauges:
+                d = math.hypot(g["x"] - ex, g["y"] - ey)
+                if d <= GAUGE_RADIUS_MM and (best is None or d < best):
+                    best, bk = d, g["gauge_kind"]
+            cur.execute("UPDATE pressure_relation SET has_gauge=%s, gauge_kind=%s WHERE id=%s",
+                        (best is not None, bk, pr_id))
+            if best is not None:
+                n += 1
+        conn.commit()
+        return n
 
 
 def _create_run(facility_id, run_id, profile_version) -> None:

@@ -63,6 +63,10 @@ class PressureRel:
     head_deg: float | None = None
     layer: str | None = None
     setpoint_pa: float | None = None
+    # migration 010. 이 구간에 **차압계가 설치돼 있는가** (별표1 4-너)
+    #   None = 차압계 도면이 없는 시설 → 판정 불가. "차압계가 없다"와 혼동하면 안 된다.
+    has_gauge: bool | None = None
+    gauge_kind: str | None = None
 
 
 @dataclass(frozen=True)
@@ -102,7 +106,8 @@ def load_pressure_rels(cur, run_id: str) -> list[PressureRel]:
     """
     cur.execute(
         """SELECT rh.room_no, rl.room_no, pr.approx,
-                  pr.head_deg, pr.layer, pr.setpoint_pa
+                  pr.head_deg, pr.layer, pr.setpoint_pa,
+                  pr.has_gauge, pr.gauge_kind
              FROM pressure_relation pr
              LEFT JOIN room rh ON rh.id = pr.room_high
              LEFT JOIN room rl ON rl.id = pr.room_low
@@ -110,7 +115,8 @@ def load_pressure_rels(cur, run_id: str) -> list[PressureRel]:
         (run_id,),
     )
     return [PressureRel(room_high_no=r[0], room_low_no=r[1], approx=bool(r[2]),
-                        head_deg=r[3], layer=r[4], setpoint_pa=r[5])
+                        head_deg=r[3], layer=r[4], setpoint_pa=r[5],
+                        has_gauge=r[6], gauge_kind=r[7])
             for r in cur.fetchall()]
 
 
