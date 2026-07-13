@@ -65,12 +65,26 @@ def _metrics(cur, run_id, facility_id) -> dict:
     eq_att = one("SELECT count(*) FROM equipment WHERE run_id=%s AND room_id IS NOT NULL", run_id)
     ahu = one("SELECT count(*) FROM ahu WHERE run_id=%s", run_id)
     adj = one("SELECT count(*) FROM room_adjacency WHERE run_id=%s", run_id)
+    adj_door = one("SELECT count(*) FROM room_adjacency WHERE run_id=%s AND via_door", run_id)
     arrows = one("SELECT count(*) FROM pressure_relation WHERE run_id=%s", run_id)
+    arrows_ok = one("""SELECT count(*) FROM pressure_relation
+                        WHERE run_id=%s AND NOT approx""", run_id)
     ov = one("SELECT count(*) FROM facility_meta WHERE run_id=%s", run_id)
+    # 2026-07-14 에 새로 얻은 것들
+    bnd = one("SELECT count(*) FROM room WHERE run_id=%s AND area_m2 IS NOT NULL", run_id)
+    grd = one("SELECT count(*) FROM room WHERE run_id=%s AND grade IS NOT NULL", run_id)
+    pa = one("SELECT count(*) FROM room WHERE run_id=%s AND pressure_pa IS NOT NULL", run_id)
     return {
         "번호방": numbered, "양쪽도면 매칭": both, "무번호 공간": unnum,
+        # ★방 경계: 벽 flood-fill. 못 구한 방은 조용히 넘기지 않고 여기서 빠진다
+        "방 경계(면적)": bnd,
+        "청정등급": grd, "절대압력(Pa)": pa,
         "장비(귀속/전체)": f"{eq_att}/{eq_tot}", "공조기(AHU)": ahu,
-        "인접 간선": adj, "차압 화살표": arrows, "설계개요 항목": ov,
+        # ★인접: '문으로 이어짐' = 동선. 조문(별표1 4-타)이 말하는 건 벽이 아니라 이것이다
+        "인접(문/전체)": f"{adj_door}/{adj}",
+        # ★화살표: '귀속' = 양쪽 방이 확정된 것. 나머지는 판정하지 않는다
+        "차압 화살표(귀속/전체)": f"{arrows_ok}/{arrows}",
+        "설계개요 항목": ov,
     }
 
 
@@ -95,11 +109,15 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
                          rule_id, id""", (run_id,))
         violations = cur.fetchall()
 
-        cur.execute("""SELECT room_no, name, floor, plan_x, plan_y FROM room
-                       WHERE run_id=%s AND plan_x IS NOT NULL AND plan_y IS NOT NULL
-                       ORDER BY floor, room_no""", (run_id,))
-        rooms = [{"room_no": a, "name": b, "floor": c, "x": d, "y": e}
-                 for a, b, c, d, e in cur.fetchall()]
+        cur.execute("""SELECT room_no, name, floor, plan_x, plan_y,
+                              area_m2, grade, pressure_pa, regime, regime_source
+                         FROM room
+                        WHERE run_id=%s AND plan_x IS NOT NULL AND plan_y IS NOT NULL
+                        ORDER BY floor, room_no""", (run_id,))
+        rooms = [{"room_no": a, "name": b, "floor": c, "x": d, "y": e,
+                  "area_m2": f, "grade": g, "pressure_pa": h,
+                  "regime": i, "regime_source": j}
+                 for a, b, c, d, e, f, g, h, i, j in cur.fetchall()]
 
         # 발주처 확인 대기: (a) 게이트로 잠긴 규칙(미검수), (b) DB 미결 질문
         cur.execute("SELECT topic, body FROM question WHERE facility_id=%s AND status='open' ORDER BY id",
@@ -165,6 +183,49 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
         out.append("<p>확인 대기 항목 없음.</p>")
 
     # 층별 SVG
+    # ── 방 목록: 압력 유형·면적·등급 ─────────────────────────────
+    # ★압력 유형(regime)이 압력 규칙의 **전제**다. 이게 틀리면 판정이 통째로 뒤집힌다.
+    #   "깨끗한 방이 고압"은 **보호형에만** 맞는 말이고, 분진 발생실은 **정반대**다.
+    #   그래서 리포트에 드러내 놓고 **눈으로 검수받게** 한다.
+    REGIME_KO = {
+        "protect": ("보호", "실이 고압 — 밖의 오염이 못 들어오게"),
+        "contain": ("봉쇄", "실이 <b>저압</b> — 분진이 복도로 못 나가게"),
+        "hazard": ("특수", "실이 <b>음압</b> — 페니실린·세포독성"),
+        "neutral": ("중립", "압력 관리 대상 아님(복도·보관소·기계실)"),
+    }
+    typed = [r for r in rooms if r.get("regime")]
+    if typed:
+        out.append("<h2>압력 유형 (압력 규칙의 전제 — 검수 필요)</h2>")
+        out.append("<p style='color:#9aa4b2;font-size:12px'>"
+                   "‘깨끗한 방이 고압’은 <b>보호형에만</b> 맞는 말입니다. "
+                   "분진이 나는 방(타정·과립·칭량)은 <b>정반대로 저압</b>이어야 합니다"
+                   "(2010 시설기준 안내서 p.24 그림6). "
+                   "유형이 틀리면 판정이 통째로 뒤집히므로 <b>눈으로 확인해 주십시오.</b><br>"
+                   "출처 <code>inferred</code> = 방 이름으로 <b>추정</b>한 것입니다. "
+                   "<code>profile</code> = 사람이 지정한 것입니다.</p>")
+        cnt: dict[str, int] = {}
+        for r in typed:
+            cnt[r["regime"]] = cnt.get(r["regime"], 0) + 1
+        out.append("<div class='metrics'>")
+        for k, n in sorted(cnt.items(), key=lambda kv: -kv[1]):
+            ko, why = REGIME_KO.get(k, (k, ""))
+            out.append(f"<div class='m'><b>{n}</b><span>{esc(ko)} — {why}</span></div>")
+        out.append("</div>")
+
+        out.append("<table><tr><th>방</th><th>이름</th><th>압력유형</th><th>출처</th>"
+                   "<th>등급</th><th>압력</th><th>면적</th></tr>")
+        for r in sorted(typed, key=lambda r: (r["floor"] or "", r["room_no"] or "")):
+            ko, _ = REGIME_KO.get(r["regime"], (r["regime"], ""))
+            src = r.get("regime_source") or ""
+            area = f"{r['area_m2']:.1f}㎡" if r.get("area_m2") else "—"
+            pa = f"{r['pressure_pa']:g}Pa" if r.get("pressure_pa") is not None else "—"
+            # 번호 없는 공간(무번호 43개)도 압력 유형을 갖는다 → esc(None) 방어
+            out.append(
+                f"<tr><td>{esc(r['room_no'] or '—')}</td><td>{esc(r['name'] or '')}</td>"
+                f"<td>{esc(ko)}</td><td><code>{esc(src)}</code></td>"
+                f"<td>{esc(r.get('grade') or '—')}</td><td>{pa}</td><td>{area}</td></tr>")
+        out.append("</table>")
+
     out.append("<h2>층별 배치 (방 위치 · 위반 마커)</h2>")
     floors = sorted({r["floor"] for r in rooms if r["floor"]})
     for fl in floors:

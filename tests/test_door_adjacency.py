@@ -62,3 +62,41 @@ def test_한_쌍이라도_문_정보가_있으면_문_기준으로_판정한다(
            AdjPair("R2", "R3", via_door=True)]     # 문 — 판정해야 한다 (NC↔D = 2단계)
     v = adj_001.evaluate(adj, rooms, CFG)
     assert [x["rooms"] for x in v] == [["R2", "R3"]]
+
+
+# ── 불완전한 문 데이터는 문 데이터가 없는 것보다 나쁘다 ──────────────
+def test_문_검출률이_낮으면_문_데이터를_쓰면_안_된다():
+    """★스스로 판 함정. 문 인접을 만들어 놓고 **검출률을 안 봤다.**
+
+    참고도면에서 문 인접이 **4쌍**(방 51개 중 7개만 문이 닿음 = 14%),
+    기준 시설에서 33쌍(79개 중 35개 = 44%) 나왔다.
+    **방에는 대개 문이 하나씩 있다.** 이 숫자는 도면에 문이 없어서가 아니라
+    **우리 문 검출이 실패했다**는 뜻이다.
+
+    그런데도 문 인접을 쓰면 ADJ-001 이 **검출하지 못한 문**에 대해
+    "문이 없으니 동선 위반 아님" 으로 **진짜 위반을 숨긴다.**
+
+    → 검출률이 임계값(80%) 미만이면 via_door 를 NULL 로 두고 벽 인접으로 폴백한다.
+      `gxpai/core/run.py` 의 DOOR_TRUST. 이 시험은 그 **판정 규칙**을 고정한다.
+    """
+    from gxpai.geometry.boundaries import BoundaryResult, RoomRegion
+
+    def _res(n_rooms, door_pairs):
+        r = BoundaryResult(
+            rooms=[RoomRegion(room_no=f"R{i}", area_m2=10.0, polygon=[]) for i in range(n_rooms)],
+            door_adjacency=door_pairs)
+        touched = {x for p in door_pairs for x in p}
+        r.door_coverage = len(touched) / len(r.rooms) if r.rooms else 0.0
+        return r
+
+    # 방 10개 중 문이 닿은 방 4개 = 40% → 못 믿는다
+    낮음 = _res(10, [("R0", "R1"), ("R2", "R3")])
+    assert 낮음.door_coverage == 0.4
+
+    # 방 10개 중 9개가 문에 닿음 = 90% → 믿는다
+    높음 = _res(10, [("R0", "R1"), ("R2", "R3"), ("R4", "R5"), ("R6", "R7"), ("R8", "R1")])
+    assert 높음.door_coverage == 0.9
+
+    DOOR_TRUST = 0.8
+    assert 낮음.door_coverage < DOOR_TRUST      # → None 을 넘겨 via_door NULL
+    assert 높음.door_coverage >= DOOR_TRUST     # → 문 인접을 쓴다

@@ -160,11 +160,25 @@ def ingest(facility_id: str) -> dict:
         # ★방 경계가 잡혔으면 **폴리곤 기반 정밀 인접**을 쓴다(최근접-k 근사보다 정확).
         #   근사 인접은 오탐/누락이 나서 ADJ-001·PRES-002/003 을 못 켰다.
         if boundary_res and boundary_res.adjacency:
-            # door_adjacency 가 비면(문 데이터 없는 도면) None 을 넘겨 via_door 를 NULL 로 둔다.
-            # 빈 리스트를 넘기면 "문이 하나도 없다"는 **거짓 사실**이 되어
-            # ADJ-001 이 모든 쌍을 '동선 아님'으로 보고 전부 무시해 버린다.
-            # (`rels=[]` vs `rels=None` 에서 똑같은 함정을 밟았다 — 없음과 비어있음은 다르다)
-            dpairs = boundary_res.door_adjacency or None
+            # ★문 데이터를 **믿을 수 있을 때만** 쓴다.
+            #
+            #   방에는 대개 문이 하나씩 있다. 그러니 '문이 닿은 방'의 비율(door_coverage)이
+            #   낮으면 그건 도면에 문이 없어서가 아니라 **우리 문 검출이 실패한 것**이다.
+            #   (참고도면 14% · 기준 시설 44% — 둘 다 실패다)
+            #
+            #   그런데도 문 인접을 쓰면 ADJ-001 이 검출 못 한 문에 대해
+            #   "문이 없으니 동선 위반 아님" 으로 **진짜 위반을 숨긴다.**
+            #   **불완전한 문 데이터는 문 데이터가 없는 것보다 나쁘다.**
+            #
+            #   → 검출률이 임계값 미만이면 None 을 넘겨 via_door 를 NULL 로 둔다.
+            #     ADJ-001 이 벽 인접으로 폴백하고, 근거에 "문 정보 없음 · 보류"를 남긴다.
+            #     판정을 포기하지도, 확정하지도 않는다.
+            DOOR_TRUST = 0.8
+            cov = boundary_res.door_coverage
+            dpairs = boundary_res.door_adjacency if cov >= DOOR_TRUST else None
+            if boundary_res.door_adjacency and dpairs is None:
+                print(f"  ⚠ 문 검출률 {cov:.0%} < {DOOR_TRUST:.0%} → 문 인접을 쓰지 않는다"
+                      f"(ADJ-001 은 벽 인접으로 폴백, 근거에 '보류' 표시)")
             n_adj = adjacency.load_pairs(run_id, boundary_res.adjacency, method="polygon",
                                          door_pairs=dpairs)
             adj_method = "polygon"

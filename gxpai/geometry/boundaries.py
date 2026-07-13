@@ -54,6 +54,11 @@ class BoundaryResult:
     #   조문은 "작업원 **동선**"·"**연결된** 구역"을 말한다. 벽만 맞대고 문이 없으면
     #   사람이 오갈 수 없으니 동선 위반이 아니다. 문 데이터가 없는 도면에서는 비어 있다.
     door_adjacency: list[tuple[str, str]] = field(default_factory=list)
+    # ★문 검출률 = 문이 하나라도 닿은 방 / 전체 방.
+    #   방에는 대개 문이 하나씩 있다. 이 값이 낮으면 **우리 문 검출이 실패한 것**이다.
+    #   낮은데도 문 인접을 쓰면 ADJ-001 이 "문이 없으니 위반 아님"으로
+    #   **진짜 위반을 숨긴다.** 불완전한 문 데이터는 없느니만 못하다.
+    door_coverage: float = 0.0
     cell_mm: float = 50.0
     failed: list[str] = field(default_factory=list)
 
@@ -416,4 +421,7 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
                 if key not in seen_d:
                     seen_d.add(key)
                     res.door_adjacency.append(key)   # type: ignore[arg-type]
+
+        touched = {x for pr in res.door_adjacency for x in pr}
+        res.door_coverage = len(touched) / len(res.rooms) if res.rooms else 0.0
     return res
