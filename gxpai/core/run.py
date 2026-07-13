@@ -35,6 +35,24 @@ _QUESTION_SEEDS = [
 ]
 
 
+def _same_source_warning(drawings: list[dict]) -> str | None:
+    """평면도와 차압도가 같은 파일(같은 sha256)이면 경고 문구를 돌려준다.
+
+    LBL-001(이름 불일치)·LBL-002(도면 간 방 차이)는 **두 도면을 대조**하는 검사다.
+    같은 파일을 두 종류로 등록하면 **자기 자신과 비교**하게 되어 늘 0건이 나온다.
+    "0건 = 깨끗하다"가 아니라 **"0건 = 대조할 게 없다"** 이다.
+    """
+    by_kind: dict[str, str] = {}
+    for d in drawings:
+        if d.get("kind") in ("floorplan", "pressure") and d.get("sha256"):
+            by_kind[d["kind"]] = d["sha256"]
+    if len(by_kind) == 2 and len(set(by_kind.values())) == 1:
+        return ("평면도와 차압도가 **같은 파일**입니다(sha256 일치). "
+                "LBL-001/002 는 두 도면을 대조하는 검사라 **판정 불가**입니다 — "
+                "0건이 나와도 '대조했더니 깨끗하다'는 뜻이 아닙니다.")
+    return None
+
+
 def _read_dxf(path):
     """DXF 로드. 손상 파일은 recover 모드 폴백 (R-E2: recover는 느리므로 폴백으로만)."""
     try:
@@ -153,6 +171,14 @@ def ingest(facility_id: str) -> dict:
                 rec.payload["source_drawing_id"] = d["id"]
                 overview.append(rec.payload)
             counts["overview"] += 1
+
+    # ★평면도와 차압도가 **같은 파일**이면 LBL-001/002(도면 간 대조)는 무의미하다.
+    #   참고도면 2층이 그렇다 — 차압 화살표가 평면도 **위에 겹쳐진** 구성이라 시트가 하나다.
+    #   그런데도 LBL 이 "0건"을 내면 읽는 사람은 **"대조했더니 깨끗하다"** 로 오해한다.
+    #   0건의 뜻은 "위반 없음"이 아니라 **"대조할 게 없음"** 이다. 구분해서 알린다.
+    same_src = _same_source_warning(fac["drawings"])
+    if same_src:
+        print(f"  ⚠ {same_src}")
 
     merged = _merge(floor_rooms, pres_rooms)
 

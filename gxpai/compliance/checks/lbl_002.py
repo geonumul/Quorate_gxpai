@@ -18,8 +18,15 @@ def evaluate(rooms: list[RoomView]) -> list[dict]:
     for r in rooms:
         if not r.room_no:
             continue
+        # ★**'차압도에 있는가'는 좌표로 판단한다.** 예전엔 `pressure_name` 유무로 봤다.
+        #   차압도에 방번호만 있고 **이름이 없는** 도면(참고도면 2층)에서
+        #   51개 방을 전부 '차압도에 없음'으로 찍었다 — **거짓 위반 51건**.
+        #   (게다가 LBL 은 review: internal 이라 게이트가 열려 있어 **DB에 실제로 적재됐다**)
+        #
+        #   이름이 없는 것과 방이 없는 것은 **다르다.** 이름 불일치는 LBL-001 이 따로 본다.
+        #   pres_x 가 없는 옛 데이터는 pressure_name 으로 폴백한다(하위호환).
         in_floor = r.plan_x is not None
-        in_pres = r.pressure_name is not None
+        in_pres = (r.pres_x is not None) if r.pres_x is not None             else (r.pressure_name is not None)
         if in_floor and not in_pres:
             out.append({
                 "severity": "minor", "rooms": [r.room_no],

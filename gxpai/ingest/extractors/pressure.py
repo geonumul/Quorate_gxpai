@@ -22,7 +22,23 @@ class PressureExtractor(BaseExtractor):
         pr = profile["pressure"]
         floors = profile["floors"]
         entity_types = profile.get("label_entity_types", ["TEXT", "MTEXT"])
-        num_re = re.compile(r"^\(?(\d{4}(?:-\d+)?)\)?$")
+        # ★방번호 정규식을 **하드코딩하고 있었다** — `^\(?(\d{4}(?:-\d+)?)\)?$`.
+        #   평면도 추출기는 프로파일(`floorplan.room_no_regex`)에서 읽는데 여기만 박아뒀다.
+        #
+        #   그 바람에 참고도면(방번호가 `F2I01` 꼴)의 **차압도 방이 0개**가 됐고,
+        #   LBL-002(도면 간 방 차이)가 **51건의 거짓 위반**을 냈다.
+        #   (LBL-002 는 review: internal 이라 게이트가 열려 있어 **DB에 실제로 적재됐다**)
+        #
+        #   미리보기(preview_rules.py)만 돌리고 **validate 를 안 돌려봐서** 놓쳤다.
+        #   → 규칙을 미리보기로만 검증하지 말고 **실제 파이프라인도 돌려볼 것.**
+        #
+        #   이제 평면도와 **같은 프로파일 정규식**을 쓴다. 차압도의 방번호 표기가 평면도와
+        #   다를 수 있으므로 `pressure.room_no_regex` 로 따로 덮어쓸 수 있게 둔다.
+        fp = profile.get("floorplan", {})
+        num_re = re.compile(pr.get("room_no_regex") or fp.get("room_no_regex")
+                            or r"^\(?(\d{4}(?:-\d+)?)\)?$")
+        bare_src = pr.get("bare_no_regex") or fp.get("bare_no_regex")
+        bare_re = re.compile(bare_src) if bare_src else None
         merge = pr.get("multiline_merge", {})
         name_d = pr["name_match_dist_mm"]
 
@@ -34,7 +50,10 @@ class PressureExtractor(BaseExtractor):
         for x, y, t, _h in rm_texts:
             m = num_re.match(t)
             if m:
-                numbers.append((x, y, m.group(1)))
+                # 정규식에 캡처 그룹이 없을 수도 있다 → 그럴 땐 전체 문자열을 쓴다
+                numbers.append((x, y, m.group(1) if m.groups() else t))
+            elif bare_re is not None and bare_re.match(t):
+                numbers.append((x, y, t))
             elif re.search(r"[가-힣A-Za-z]", t) and t not in ("UP", "DN", "Pa"):
                 raw_names.append((x, y, t))
         if merge:

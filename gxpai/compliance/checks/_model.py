@@ -32,6 +32,10 @@ class RoomView:
     grade: str | None = None
     plan_x: float | None = None
     plan_y: float | None = None
+    # ★차압도에서의 좌표. **'차압도에 존재하는가'는 이름이 아니라 좌표로 판단한다.**
+    #   예전엔 pressure_name 유무로 판단했다가, 차압도에 방번호만 있고 이름이 없는 도면
+    #   (참고도면)에서 51개 방을 전부 '차압도에 없음'으로 찍었다 — 거짓 위반.
+    pres_x: float | None = None
     # 아래 3개는 migration 007. 압력 규칙 재설계(PRES-001/002/003)에 필요하다.
     #   pressure_pa   : 도면에 표기된 절대 정압(Pa). 없으면 None → 수치 규칙은 조용히 건너뜀
     #   regime        : protect | contain | hazard | neutral (압력 방향 유형)
@@ -90,7 +94,7 @@ def load_rooms(cur, run_id: str) -> list[RoomView]:
     """room 테이블에서 한 run 의 방들을 RoomView 로 적재."""
     cur.execute(
         """SELECT room_no, name, pressure_name, floor, grade, plan_x, plan_y,
-                  pressure_pa, regime, regime_source, interlock_count
+                  pressure_pa, regime, regime_source, interlock_count, pres_x
              FROM room WHERE run_id=%s""",
         (run_id,),
     )
@@ -98,7 +102,7 @@ def load_rooms(cur, run_id: str) -> list[RoomView]:
         RoomView(room_no=r[0], name=r[1], pressure_name=r[2], floor=r[3],
                  grade=r[4], plan_x=r[5], plan_y=r[6],
                  pressure_pa=r[7], regime=r[8], regime_source=r[9],
-                 interlock_count=r[10])
+                 interlock_count=r[10], pres_x=r[11])
         for r in cur.fetchall()
     ]
 
