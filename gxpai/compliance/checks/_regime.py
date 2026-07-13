@@ -28,6 +28,8 @@
 """
 from __future__ import annotations
 
+import re
+
 PROTECT = "protect"
 CONTAIN = "contain"
 HAZARD = "hazard"
@@ -66,8 +68,57 @@ NEUTRAL_WORDS = (
     "기계", "공조", "외조기", "집진", "전기", "설비", "펌프", "보일러",
     "P.S", "PS", "샤프트", "덕트", "계단", "엘리베이터", "승강기", "방풍",
     "사무", "휴게", "식당", "화장실", "예비", "다용도",
+    # '대기': `칭량 전 원료대기실` 처럼 원료·반제품이 **밀봉된 채 머무는** 방.
+    #         공정을 하는 방이 아니다 → 압력 관리 대상이 아니다.
+    "대기",
 )
 CORRIDOR_WORDS = ("복도", "통로", "회랑")
+
+# ★분진 낱말이 들어 있어도 **그 공정을 하는 방이 아닌** 경우 (2026-07-14 추가)
+#
+# 기준 시설에서 실제로 오탐이 무더기로 났다:
+#     `(N)칭량 전 원료대기실`   원료가 아직 봉지에 밀봉돼 있다. 분진이 날 리 없다
+#     `(N)칭량 후 원료대기실`   칭량이 끝난 원료가 대기하는 방
+#     `(N)반제품 보관실(선별전)` 보관실이지 선별실이 아니다
+#     `(N)타정1실 전실`          에어락이지 타정실이 아니다 (전실만 6개)
+#     `(N)코팅기계1실`           설비가 놓인 방
+#
+# 공통점: **한국어 합성명사는 마지막 명사가 머리말(head)** 이다.
+#   `칭량 전 원료대기실` 의 머리말은 '대기실' 이지 '칭량' 이 아니다.
+#   그러니 "낱말이 어디든 들어 있으면"이 아니라 **머리말을 봐야** 한다.
+#
+# 부정은 **분진 판정만 취소**한다. 그 뒤 판별은 계속 흘러간다.
+#   → `타정1실 전실` 은 중립이 아니라 **보호(protect)** 로 간다.
+#     에어락은 압력 관리 대상이다(오히려 압력 단계의 핵심). 중립으로 빼면
+#     '분진이 에어락으로 새는' 진짜 위반을 놓친다.
+#   → `칭량 전 원료대기실` 은 '대기' 가 중립 낱말이라 중립으로 간다.
+NEGATION_HEADS = (
+    "전실", "에어락", "에어록",
+    "대기실", "보관실", "보관소", "저장실", "창고", "기계실",
+)
+
+# ★'액(液)' — 분진 낱말 바로 뒤에 붙으면 **액체**다. 분말이 아니다.
+#     `과립액 조제1실` = 결합액을 만드는 방  ·  `코팅액 조제2실` = 코팅 용액을 만드는 방
+#   ⚠ **보류 · 발주처 확인 필요**: 용액을 만들 때도 고분자 분말을 붓는 순간이 있다.
+#     설계사가 이 방을 어떻게 관리하는지 물어야 한다. 지금은 '분진 아님'으로 둔다.
+LIQUID_SUFFIX = "액"
+
+# 괄호 안은 **꾸밈말**이지 머리말이 아니다: `(N)` `(예비)` `(선별전)` `(Bin/DRUM 포함)`
+_PAREN = re.compile(r"[（(\[][^）)\]]*[）)\]]")
+# 숫자는 방 번호일 뿐이다: `코팅기계1실` → `코팅기계실`, `타정 3실` → `타정실`
+_DIGIT = re.compile(r"\d+")
+
+
+def head_form(name: str | None) -> str:
+    """머리말 비교용 정규형: 괄호·공백·숫자를 턴다.
+
+        '(N)반제품 보관실(선별전)' → '반제품보관실'
+        '(N)코팅 기계 2실'         → '코팅기계실'
+        '(N)선별 3실(예비)'        → '선별실'
+    """
+    n = _PAREN.sub("", name or "")
+    n = _DIGIT.sub("", n)
+    return n.replace(" ", "")
 
 
 def is_corridor(name: str | None) -> bool:
@@ -75,16 +126,37 @@ def is_corridor(name: str | None) -> bool:
     return bool(name) and any(w in name for w in CORRIDOR_WORDS)
 
 
+def is_dust_process(name: str | None) -> bool:
+    """분진이 나는 **공정을 하는 방**인가. 이름에 낱말이 들었는지가 아니다."""
+    h = head_form(name)
+    if not h:
+        return False
+    if any(h.endswith(w) for w in NEGATION_HEADS):
+        return False                      # 대기실·보관실·전실·기계실 = 공정실이 아니다
+    for w in DUST_WORDS:
+        i = h.find(w)
+        if i < 0:
+            continue
+        # '과립액' '코팅액' = 액체다. 분말 공정이 아니다.
+        if h[i + len(w):].startswith(LIQUID_SUFFIX):
+            continue
+        return True
+    return False
+
+
 def infer_regime(name: str | None, grade: str | None = None) -> str:
     """방 이름(+등급)으로 압력 유형을 **추정**한다.
 
     우선순위: **특수제제 > 복도 > 분진공정 > 중립 > 보호(기본)**
 
-    순서가 전부 시행착오로 정해졌다. 두 번 틀렸다:
+    순서가 전부 시행착오로 정해졌다. 세 번 틀렸다:
       ① 분진공정을 복도보다 먼저 봤다 → `정립실복도` 를 봉쇄실로 오판.
          **복도가 먼저**여야 한다. 정립실복도는 복도지 정립실이 아니다.
       ② 중립을 분진공정보다 먼저 봤다 → `선별 3실(예비)` 가 '예비' 때문에 중립으로 빠졌다.
          **분진이 중립보다 먼저**여야 한다. 예비든 뭐든 선별실은 분진이 난다.
+      ③ 낱말이 들어 있기만 하면 분진이라 봤다 → `칭량 전 원료대기실`·`타정1실 전실`·
+         `반제품 보관실(선별전)`·`코팅기계1실` 을 전부 봉쇄실로 오판(기준 시설에서 10방).
+         **머리말을 봐야 한다** (is_dust_process). 한국어는 마지막 명사가 머리말이다.
     """
     n = (name or "").replace(" ", "")
 
@@ -92,7 +164,7 @@ def infer_regime(name: str | None, grade: str | None = None) -> str:
         return HAZARD
     if is_corridor(n):
         return NEUTRAL
-    if any(w in n for w in DUST_WORDS):
+    if is_dust_process(name):
         return CONTAIN
     if any(w in n for w in NEUTRAL_WORDS):
         return NEUTRAL

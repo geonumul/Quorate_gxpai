@@ -289,3 +289,66 @@ def test_adj001_등급_미상은_건너뛴다():
     rooms = [RoomView(room_no="R1", name="충진실", grade=None),
              RoomView(room_no="R2", name="복도", grade="CNC")]
     assert adj_001.evaluate([AdjPair("R1", "R2")], rooms, CFGA) == []
+
+
+# ── 머리말(head) 판별: 낱말이 들었다고 그 공정실이 아니다 ──────────
+def test_regime_공정실이_아닌_방을_봉쇄실로_보지_않는다():
+    """★기준 시설에서 무더기로 난 오탐. 10개 방이 잘못 분류돼 있었다.
+
+    한국어 합성명사는 **마지막 명사가 머리말**이다.
+        `칭량 전 원료대기실` 의 머리말은 '대기실' 이지 '칭량' 이 아니다.
+        `반제품 보관실(선별전)` 의 머리말은 '보관실' 이지 '선별' 이 아니다.
+        `타정1실 전실` 의 머리말은 '전실' 이지 '타정' 이 아니다.
+    낱말이 이름 어딘가에 들어 있는지가 아니라 **머리말을 봐야** 한다.
+
+    이게 왜 중요한가: 봉쇄실로 잘못 보면 PRES-003(봉쇄 실패)이
+    "원료대기실이 복도보다 고압이다 → 분진이 샌다" 는 **거짓 위반**을 낸다.
+    원료는 아직 봉지에 밀봉돼 있다. 분진이 날 리가 없다.
+    """
+    # 원료·반제품이 밀봉된 채 머무는 방 → 중립
+    assert infer_regime("(N)칭량 전 원료대기실") == NEUTRAL
+    assert infer_regime("(N)칭량 후 원료대기실") == NEUTRAL
+    assert infer_regime("(N)반제품 보관실(선별전)") == NEUTRAL
+    assert infer_regime("(N)반제품 보관실(선별후)") == NEUTRAL
+    # 설비가 놓인 방 → 중립
+    assert infer_regime("(N)코팅기계1실") == NEUTRAL
+    assert infer_regime("(N)코팅 기계 2실") == NEUTRAL
+
+
+def test_regime_전실은_중립이_아니라_보호다():
+    """★부정은 **분진 판정만 취소**한다. 중립으로 빼버리면 안 된다.
+
+    `타정1실 전실` 은 타정실이 아니다(분진 아님). 하지만 에어락은
+    **압력 관리의 핵심 단계**다. 중립으로 빼면 PRES-002/003 이 아예 건너뛰어
+    '분진이 에어락으로 새는' 진짜 위반을 놓친다.
+    """
+    for n in ["(N)타정1실 전실", "(N)과립1실 전실", "무균 전실", "퇴실 전실"]:
+        assert infer_regime(n) == PROTECT, n
+
+
+def test_regime_액체_조제실은_분진이_아니다():
+    """`과립액 조제1실` = 결합액을 만드는 방. 분말이 아니라 **액체**다.
+
+    ⚠ 보류 · 발주처 확인 필요 — 용액을 만들 때 고분자 분말을 붓는 순간은 있다.
+      설계사가 이 방을 어떻게 관리하는지 물어야 한다. 지금은 '분진 아님'으로 둔다.
+    """
+    from gxpai.compliance.checks._regime import is_dust_process
+    assert not is_dust_process("(N)과립액 조제1실")
+    assert not is_dust_process("(N)코팅액 조제2실")
+    # '액' 이 안 붙으면 그대로 분진이다
+    assert is_dust_process("(N)과립1실")
+    assert is_dust_process("(N)코팅2실")
+
+
+def test_regime_진짜_공정실은_그대로_봉쇄다():
+    """★부정 규칙을 넣다가 진짜 공정실까지 놓치면 안 된다. 회귀 방지."""
+    for n in ["(N)칭량1실", "(N)타정1실", "(N)과립1실", "(N)혼합 2실",
+              "(N)선별 3실(예비)", "(N)코팅1실"]:
+        assert infer_regime(n) == CONTAIN, n
+
+
+def test_regime_괄호와_숫자는_머리말이_아니다():
+    from gxpai.compliance.checks._regime import head_form
+    assert head_form("(N)반제품 보관실(선별전)") == "반제품보관실"
+    assert head_form("(N)코팅 기계 2실") == "코팅기계실"
+    assert head_form("(N)선별 3실(예비)") == "선별실"
