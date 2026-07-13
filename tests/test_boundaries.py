@@ -131,6 +131,61 @@ def test_벽이_안_닫히면_버리고_기록한다():
     assert any("벽이 안 닫힘" in f for f in res.failed)
 
 
+def test_틈메우기가_크면_작은방을_삼킨다():
+    """★실제 도면에서 당한 버그.
+
+    close_gap 을 900mm 로 뒀더니 **무균 전실·갱의실 6개가 통째로 사라졌다**
+    (라벨이 '벽 픽셀' 위에 얹힘 = 방이 벽에 먹혔다).
+    전실은 원래 2~4㎡ 로 작다. 900mm 닫기는 벽을 양쪽으로 450mm 씩 두껍게 만들어 방을 지운다.
+    → close_gap 은 **작게**(틈만 메울 만큼) 잡아야 한다.
+    """
+    doc = ezdxf.new()
+    msp = doc.modelspace()
+    _rect(msp, 0, 0, 1600, 1600)          # 작은 전실 (1.6m x 1.6m = 2.56㎡)
+    # ※도면을 넓게 만든다. 좁으면 '바깥 영역'이 작아서, 방이 먹혔을 때
+    #   _seed 가 바깥을 방으로 착각해 잡는다(가짜 통과). 실제 도면 조건을 흉내낸다.
+    _rect(msp, 40000, 0, 44000, 4000)
+    rooms = [{"room_no": "AL", "plan_x": 800, "plan_y": 800}]
+
+    prof = dict(PROFILE["boundaries"], min_area_m2=0.8, max_area_m2=50)
+
+    # 큰 close_gap → 방이 벽에 먹힌다 (바깥은 max_area 초과라 후보가 안 된다)
+    big = {"boundaries": dict(prof, close_gap_mm=900)}
+    assert boundaries.build(doc, rooms, big).rooms == [], "큰 close_gap 이 작은 방을 삼켜야(=재현)"
+
+    # 작은 close_gap → 살아난다
+    small = {"boundaries": dict(prof, close_gap_mm=200)}
+    got = boundaries.build(doc, rooms, small).rooms
+    assert len(got) == 1 and 1.5 <= got[0].area_m2 <= 2.6
+
+
+def test_인접반경은_틈메우기와_분리된다():
+    """★close_gap 을 줄이면(작은 방을 살리려고) 인접까지 같이 줄어들던 문제.
+
+    두 값은 요구가 정반대다:
+      close_gap  작아야 좋다 (크면 작은 방을 삼킨다)
+      adj_gap    커야 좋다   (벽 두께를 건너뛰어야 인접이 잡힌다)
+    실제 도면에서 close_gap=200 으로 방 51개를 다 찾고도 인접이 9쌍뿐이었다.
+    """
+    doc = ezdxf.new()
+    msp = doc.modelspace()
+    _rect(msp, 0, 0, 5000, 4000)
+    _rect(msp, 5400, 0, 10400, 4000)      # 400mm 두께 벽을 사이에 둔 두 방
+    rooms = [{"room_no": "R1", "plan_x": 2500, "plan_y": 2000},
+             {"room_no": "R2", "plan_x": 7900, "plan_y": 2000}]
+
+    base = dict(PROFILE["boundaries"], close_gap_mm=200)
+
+    # adj_gap(반경)이 벽 두께(400mm)보다 작으면 못 건너뛴다 → 인접 0
+    narrow = boundaries.build(doc, rooms, {"boundaries": dict(base, adj_gap_mm=50)})
+    assert len(narrow.rooms) == 2 and narrow.adjacency == []
+
+    # 반경을 벽 두께 이상으로 주면 잡힌다
+    wide = boundaries.build(doc, rooms, {"boundaries": dict(base, adj_gap_mm=500)})
+    assert len(wide.rooms) == 2
+    assert sorted(wide.adjacency[0]) == ["R1", "R2"]
+
+
 def test_wall_layers_미설정이면_사유를_남긴다():
     doc = ezdxf.new()
     res = boundaries.build(doc, [], {"boundaries": {}})

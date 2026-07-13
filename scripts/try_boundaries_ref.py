@@ -125,9 +125,10 @@ PROFILE = {"boundaries": {
     "wall_layers": ["WALL"],
     "door_layers": [],
     "cell_mm": 60,
-    "close_gap_mm": 900,
+    "close_gap_mm": 200,
     "max_area_m2": 400,
-    "min_area_m2": 2,
+    "min_area_m2": 0.8,
+    "adj_gap_mm": 300,
 }}
 
 res = boundaries.build(tmp, nums, PROFILE)

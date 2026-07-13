@@ -281,9 +281,17 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
                                     polygon=_contour(mask, minx, miny, cell),
                                     mask_id=lid))
 
-    # ── 인접: 각 방 영역을 벽 두께만큼 팽창시켜 다른 방과 닿는지 본다 ──
-    grow = max(2, int(round((close_gap * 1.5) / cell)))
-    st = np.ones((grow, grow), dtype=bool)
+    # ── 인접: 각 방 영역을 **벽 두께만큼** 팽창시켜 다른 방과 닿는지 본다 ──
+    # ★`close_gap` 과 **분리된 파라미터**여야 한다.
+    #   틈 메우기(close_gap)는 작아야 좋다 — 크면 **작은 방(전실 2~4㎡)을 통째로 삼킨다**
+    #   (900mm 로 뒀더니 무균 전실·갱의실 6개가 벽에 먹혀 사라졌다).
+    #   반면 인접 판정은 **벽 두께를 건너뛸 만큼** 커야 한다. 두 요구가 정반대다.
+    #   같은 값에 묶어 뒀더니 close_gap=200 에서 방 51개를 다 찾고도 인접이 9쌍뿐이었다.
+    # `adj_gap_mm` = **건너뛸 벽 두께(반경)**. 구조요소 크기가 아니다.
+    #   (처음엔 크기로 썼다가 실제 반경이 절반이라 헷갈렸다 — 시험이 잡았다.)
+    adj_gap = float(cfg.get("adj_gap_mm", max(close_gap, 300.0)))
+    r = max(1, int(round(adj_gap / cell)))
+    st = np.ones((2 * r + 1, 2 * r + 1), dtype=bool)
     own = {rr.room_no: (lab == rr.mask_id) for rr in res.rooms}
     dil = {no: ndimage.binary_dilation(m, structure=st) for no, m in own.items()}
 
