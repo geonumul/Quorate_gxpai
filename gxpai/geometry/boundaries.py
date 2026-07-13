@@ -53,21 +53,50 @@ class BoundaryResult:
     failed: list[str] = field(default_factory=list)
 
 
-def _iter_wall_segments(doc, layers: list[str]):
-    """벽/문 레이어에서 선분(2점)을 뽑는다. LINE·LWPOLYLINE·ARC(현으로 근사) 지원."""
+def _iter_wall_segments(doc, layers: list[str], max_depth: int = 5,
+                        skip_blocks: list[str] | None = None):
+    """벽/문 레이어에서 선분(2점)을 뽑는다. LINE·LWPOLYLINE·ARC(현으로 근사) 지원.
+
+    ★**블록(INSERT) 안까지 재귀로 들어간다.**
+
+    안 들어갔더니 기준 시설 3층이 37방 중 32방이 **하나의 41,227㎡ 덩어리**로 뭉쳤다.
+    벽이 없어서가 아니라 **벽을 못 본 것**이었다 — 벽 선분이 블록 정의 안에 들어 있었다.
+    (텍스트 쪽은 이미 재귀로 고쳤는데(dxftext) 벽은 안 고쳐 둔 채였다. 같은 함정을 두 번 밟았다.)
+
+    레이어는 **실효 레이어**로 본다: 블록 안에서 레이어가 '0' 이면 INSERT 의 레이어를 상속한다.
+    """
+    from ezdxf.math import Matrix44
+
     want = {l.lower() for l in layers}
-    for e in doc.modelspace():
-        try:
-            if e.dxf.layer.lower() not in want:
-                continue
-        except AttributeError:
-            continue
+    # ★`wall_layers: ["*"]` = **레이어를 가리지 않고 선/호를 전부 장벽으로 태운다.**
+    #
+    #   참고도면에서 이게 유일한 방법이었다. 평면도 블록 안 엔티티가 **전부 레이어 '0'** 이라
+    #   (블록이 INSERT 의 레이어를 상속) 레이어 이름으로 벽만 골라낼 수가 없다.
+    #   레이어를 지정하면 벽 선분이 0개가 되고, 방 51개가 전부 실패한다.
+    #
+    #   대가: 가구·치수선까지 장벽이 된다 → 방이 잘게 쪼개질 수 있다.
+    #   참고도면에서는 문제되지 않았다(51/51). 안 되는 도면이 나오면 그때 걸러낸다.
+    #   **어느 쪽이든 결과를 방 개수로 확인하고 쓴다. 짐작으로 정하지 않는다.**
+    all_layers = "*" in want
+    skip = [s for s in (skip_blocks or [])]
+
+    def emit(e, mat, lay):
+        if not all_layers and lay.lower() not in want:
+            return
         t = e.dxftype()
+
+        def tp(x, y):
+            if mat is None:
+                return (x, y)
+            p = mat.transform((x, y, 0.0))
+            return (p.x, p.y)
+
         if t == "LINE":
-            a, b = e.dxf.start, e.dxf.end
-            yield (a.x, a.y, b.x, b.y)
+            a = tp(e.dxf.start.x, e.dxf.start.y)
+            b = tp(e.dxf.end.x, e.dxf.end.y)
+            yield (a[0], a[1], b[0], b[1])
         elif t == "LWPOLYLINE":
-            pts = [(p[0], p[1]) for p in e.get_points()]
+            pts = [tp(p[0], p[1]) for p in e.get_points()]
             if e.closed and len(pts) > 2:
                 pts.append(pts[0])
             for i in range(len(pts) - 1):
@@ -82,10 +111,37 @@ def _iter_wall_segments(doc, layers: list[str]):
             prev = None
             for i in range(n + 1):
                 a = a0 + (a1 - a0) * i / n
-                p = (c.x + r * math.cos(a), c.y + r * math.sin(a))
+                p = tp(c.x + r * math.cos(a), c.y + r * math.sin(a))
                 if prev:
                     yield (prev[0], prev[1], p[0], p[1])
                 prev = p
+
+    def walk(container, mat: "Matrix44 | None", parent_layer: str | None, depth: int):
+        for e in container:
+            try:
+                lay = e.dxf.layer
+            except AttributeError:
+                continue
+            if lay == "0" and parent_layer:
+                lay = parent_layer
+
+            if e.dxftype() == "INSERT":
+                if depth >= max_depth:
+                    continue
+                if any(s in e.dxf.name for s in skip):
+                    continue
+                blk = doc.blocks.get(e.dxf.name)
+                if blk is None:
+                    continue
+                m = e.matrix44()
+                if mat is not None:
+                    m = m @ mat
+                yield from walk(blk, m, lay, depth + 1)
+                continue
+
+            yield from emit(e, mat, lay)
+
+    yield from walk(doc.modelspace(), None, None, 0)
 
 
 def _draw_line(grid: np.ndarray, x0: int, y0: int, x1: int, y1: int) -> None:
@@ -198,7 +254,8 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
     max_area = float(cfg.get("max_area_m2", 2000))
     min_area = float(cfg.get("min_area_m2", 1))
 
-    segs = list(_iter_wall_segments(doc, list(wall_layers) + list(door_layers)))
+    segs = list(_iter_wall_segments(doc, list(wall_layers) + list(door_layers),
+                                    skip_blocks=cfg.get("skip_blocks")))
     pts = [(r["plan_x"], r["plan_y"]) for r in rooms
            if r.get("plan_x") is not None and r.get("plan_y") is not None]
     if not segs or not pts:
@@ -221,6 +278,22 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
     walls = np.zeros((h, w), dtype=np.uint8)
     for x0, y0, x1, y1 in segs:
         _draw_line(walls, gx(x0), gy(y0), gx(x1), gy(y1))
+
+    # ── 문 구멍 막기 ────────────────────────────────────────────
+    # CAD 평면도는 **문 자리에 벽을 그리지 않는다.** 그대로 두면 fill 이 그 구멍으로
+    # 옆방·복도까지 줄줄 새어나가 여러 방이 하나의 거대한 덩어리가 된다
+    # (기준 시설에서 96방 중 45방만 잡혔다. 3F 는 38 중 9).
+    #
+    # 문 블록의 **호(문이 열리는 궤적)** 에서 경첩과 '닫힌 위치'를 구해 선을 긋는다.
+    # 어느 끝이 닫힌 위치인지는 **방금 만든 벽 격자에게 물어본다** — 닫힌 문의 끝은
+    # 반대쪽 문설주(벽)에 닿고, 열린 문의 끝은 방 한가운데 떠 있다.
+    # 각도로 추측하지 않는다(회전·거울반사에 또 당한다. 차압 화살표에서 겪었다).
+    n_doors = 0
+    if door_layers and cfg.get("seal_doors", True):
+        from .door_barriers import door_barriers
+        for x0, y0, x1, y1 in door_barriers(doc, list(door_layers), walls, minx, miny, cell):
+            _draw_line(walls, gx(x0), gy(y0), gx(x1), gy(y1))
+            n_doors += 1
 
     # 남은 틈 메우기(문 자리 등). 닫기(closing)=팽창 후 침식 → 얇은 틈만 메운다.
     k = max(1, int(round(close_gap / cell)))
