@@ -63,38 +63,54 @@ def evaluate(rels: list[PressureRel], adj: list[AdjPair], rooms: list[RoomView],
         seen.add(key)
         reg, src = regime[room]
         kind = "특수제제(음압)" if reg == HAZARD else "분진 발생실"
+        oname = view[other].name or ""
         out.append({
             "severity": "critical",
             "rooms": [room, other],
             "message": (f"봉쇄 실패: {kind} {room}({view[room].name or ''})이(가) "
-                        f"복도 {other}보다 고압 — {why}. 분진이 복도로 확산될 수 있음"),
-            "evidence": {"room": room, "corridor": other, "regime": reg,
-                         "regime_source": src, **ev},
+                        f"{other}({oname})보다 고압 — {why}. "
+                        f"분진이 밖으로 확산될 수 있음"),
+            "evidence": {"room": room, "neighbor": other,
+                         "neighbor_regime": regime[other][0] if other in regime else None,
+                         "regime": reg, "regime_source": src, **ev},
         })
 
-    # 1) 화살표 근거: 봉쇄실(고압쪽) → 복도(저압쪽)
+    # 1) 화살표 근거: 봉쇄실이 **고압쪽**이고, 저압쪽이 봉쇄실이 아니면 분진이 나간다
+    #
+    #   ★처음엔 저압쪽이 '복도'일 때만 봤다. 실제 도면에서 3건을 놓쳤다:
+    #       contain → neutral (보관실·기계실) 2건
+    #       contain → protect (청정실) 1건  ← 이게 제일 나쁘다
+    #     분진이 나가는 곳이 복도든 보관실이든 청정실이든 **봉쇄 실패**다.
+    #     (contain → contain 은 둘 다 분진 구역이라 문제 아님 — 실제 14건 있었다)
     for rel in rels:
         if rel.approx or not rel.room_high_no or not rel.room_low_no:
             continue
         hi, lo = rel.room_high_no, rel.room_low_no
-        if hi not in regime or lo not in view:
+        if hi not in regime or lo not in regime:
             continue
-        if regime[hi][0] in (CONTAIN, HAZARD) and corridor(lo):
-            report(hi, lo, "화살표가 작업실 → 복도 방향", {"근거": "arrow"})
+        if regime[hi][0] not in (CONTAIN, HAZARD):
+            continue
+        if regime[lo][0] in (CONTAIN, HAZARD):
+            continue                       # 분진 구역끼리는 문제 아님
+        where = "복도" if corridor(lo) else f"{regime[lo][0]} 구역"
+        report(hi, lo, f"화살표가 작업실 → {where} 방향", {"근거": "arrow"})
 
-    # 2) 절대압력 근거: 봉쇄실 Pa > 인접 복도 Pa
+    # 2) 절대압력 근거: 봉쇄실 Pa > 인접(비봉쇄) 실 Pa
     for pair in adj:
         for a, b in ((pair.a, pair.b), (pair.b, pair.a)):
-            if a not in regime or b not in view:
+            if a not in regime or b not in regime:
                 continue
-            if regime[a][0] not in (CONTAIN, HAZARD) or not corridor(b):
+            if regime[a][0] not in (CONTAIN, HAZARD):
                 continue
+            if regime[b][0] in (CONTAIN, HAZARD):
+                continue                   # 분진 구역끼리는 문제 아님
             pa, pb = view[a].pressure_pa, view[b].pressure_pa
             if pa is None or pb is None:
                 continue
             if pa > pb:
-                report(a, b, f"{pa:g}Pa > 복도 {pb:g}Pa",
-                       {"근거": "pressure_pa", "room_pa": pa, "corridor_pa": pb})
+                where = "복도" if corridor(b) else f"{regime[b][0]} 구역"
+                report(a, b, f"{pa:g}Pa > {where} {pb:g}Pa",
+                       {"근거": "pressure_pa", "room_pa": pa, "neighbor_pa": pb})
     return out
 
 

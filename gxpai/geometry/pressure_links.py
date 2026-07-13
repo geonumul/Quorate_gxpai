@@ -1,17 +1,28 @@
 # -*- coding: utf-8 -*-
-"""차압 화살표 ↔ 방 귀속 (관찰된 기하만; 압력 해석은 하지 않음).
+"""차압 화살표 ↔ 방 귀속 + **압력 방향 해석**.
 
 로드맵: T2.1 후속. docs/기존데이터_분석.md 가설 2·3의 우회로를 파이프라인에 반영.
 
 각 화살표에 대해 차압도 방 라벨(같은 좌표계) 중 화살촉이 향하는 쪽(head)과 꼬리 쪽(tail)을
-찾아 pressure_relation.room_head / room_tail 에 저장한다. 이것은 도면에서 읽은 사실이다.
+찾아 pressure_relation.room_head / room_tail 에 저장한다. 이것은 **도면에서 읽은 사실**이다.
 
-'어느 방이 고압인가'는 화살표 의미(S-1)가 확정돼야 정해지는 해석이므로 여기서 하지 않는다.
-room_high/room_low 는 계속 NULL 로 둔다(발주처 확인 후 채움). 우리 잠정 추정은 head=저압이지만
-확정이 아니며, 이 모듈은 그 추정을 데이터에 반영하지 않는다.
+## S-1(화살표 의미) — **확정됨 (2026-07-13)**
+    **화살촉 = 저압 쪽 = 공기가 흘러가는 방향.**  (공기는 고압에서 저압으로 흐른다)
+    → `room_high = room_tail` · `room_low = room_head`
+
+확정 근거 4중:
+  ① 1차 미팅(2026-07-09) 대표님: "바람은 높은 데서 낮은 데로"
+  ② 새 참고도면 범례: 화살표 종류별 차압 설정값 명시(10~15Pa / 5~10Pa / 불필요)
+  ③ 도면의 절대압력(Pa)과 대조: 5Pa 탈의실 → 0Pa 복도 등 일치
+  ④ DXF 원본에 **회전각(0/90/180/270)** 으로 존재 — 추측이 아니라 데이터
+  ⑤ 2010 시설기준 안내서 p.23 Cascade 구조
+
+**예전에는 이 해석을 일부러 하지 않았다**(room_high/room_low 를 NULL 로 두었다).
+그 결과 차압관계 98개가 있어도 **방 귀속 확정 0건**이라 PRES 규칙이 전부 판정 불가였다.
+이제 근거가 갖춰졌으므로 채운다. 상세: 법규/조문근거_색인.md A절.
 
 구조: associate() 는 순수 함수(DB 무관, 합성 시험 대상), build() 는 DB 어댑터.
-화살표 기하(S-1 확정): rotation=0 에서 화살촉 -y, 세계각도 = 270° + rotation.
+화살표 기하: rotation=0 에서 화살촉 -y, 세계각도 = 270° + rotation.
 """
 from __future__ import annotations
 
@@ -79,10 +90,17 @@ def build(run_id: str) -> int:
         n = 0
         for pr_id, ex, ey, rot in arrows:
             tail_id, head_id = associate_one(ex, ey, rot or 0.0, rooms)
-            # room_high/room_low 는 건드리지 않는다(해석 - 발주처 확인 전 금지).
+            # ★S-1 확정(2026-07-13): 화살촉 = 저압 쪽, 꼬리 = 고압 쪽.
+            #   예전엔 이 해석을 미뤄 room_high/room_low 를 NULL 로 뒀고,
+            #   그 바람에 차압관계 98개가 있어도 **방 귀속 확정 0건**이라 PRES 규칙이 전부 죽었다.
+            #   근거 4중 확인(모듈 docstring 참조). approx=false 로 표시해 규칙이 판정하게 한다.
+            linked = head_id is not None and tail_id is not None
             cur.execute(
-                "UPDATE pressure_relation SET room_head=%s, room_tail=%s WHERE id=%s",
-                (head_id, tail_id, pr_id),
+                """UPDATE pressure_relation
+                      SET room_head=%s, room_tail=%s,
+                          room_high=%s, room_low=%s, approx=%s
+                    WHERE id=%s""",
+                (head_id, tail_id, tail_id, head_id, not linked, pr_id),
             )
             if head_id is not None and tail_id is not None:
                 n += 1

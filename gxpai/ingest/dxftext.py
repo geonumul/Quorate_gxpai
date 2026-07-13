@@ -58,23 +58,74 @@ def iter_label_texts_any_layer(doc, entity_types=("TEXT", "MTEXT")):
         yield (pos.x, pos.y, t, e.dxf.layer)
 
 
-def iter_label_texts(doc, layers, entity_types=("TEXT", "MTEXT")):
-    """지정 레이어의 보이는 TEXT/MTEXT를 (x, y, text, height) 로 순회 (R-A1/A2/S-10)."""
+def _effective_layer(entity, parent_layer: str | None) -> str:
+    """블록 안 엔티티의 **실효 레이어**.
+
+    CAD 규칙: 블록 정의 안에서 레이어가 '0' 인 엔티티는 **INSERT 의 레이어를 상속**한다.
+    자기 레이어가 따로 있으면 그것을 쓴다.
+    """
+    lay = entity.dxf.layer
+    if lay == "0" and parent_layer:
+        return parent_layer
+    return lay
+
+
+def iter_label_texts(doc, layers, entity_types=("TEXT", "MTEXT"), max_depth: int = 6):
+    """지정 레이어의 보이는 TEXT/MTEXT를 (x, y, text, height) 로 순회 (R-A1/A2/S-10).
+
+    ★**블록(INSERT) 안까지 재귀로 들어간다. 좌표는 세계좌표로 변환한다.**
+
+    왜 필요한가 — 실제로 당했다:
+      새 참고도면은 방 라벨이 전부 **블록 안**에 있다
+      (`2층평면도(260320)` → TEXT: Grade 49 · RoomName 56 · ROOMNUMBER 51).
+      모델스페이스만 훑던 예전 코드는 **아무것도 못 봤다** — 추출기 전체가 0건을 냈다.
+      CAD 도면은 블록 중첩이 기본이다(이 도면은 3단). 모델스페이스만 보는 건 반쪽짜리다.
+
+    레이어 필터는 **실효 레이어**로 한다(블록 안 '0' 은 INSERT 의 레이어를 상속).
+    """
+    from ezdxf.math import Matrix44
+
     if isinstance(layers, str):          # 프로파일이 "RM" 처럼 문자열이면 문자로 쪼개짐 방지
         layers = [layers]
     layers = set(layers)
     types = tuple(entity_types)
-    msp = doc.modelspace()
-    for e in msp:
-        if e.dxftype() not in types:
-            continue
-        if e.dxf.layer not in layers:
-            continue
-        if not _layer_visible(doc, e.dxf.layer):
-            continue
-        t = normalize_dxf_text(e)
-        if not t:
-            continue
-        ins = text_position(e)  # R-F1: 정렬 보정된 실제 위치
-        height = getattr(e.dxf, "height", None) or getattr(e.dxf, "char_height", None)
-        yield (ins.x, ins.y, t, height)
+
+    def walk(container, mat: Matrix44 | None, parent_layer: str | None, depth: int):
+        for e in container:
+            t = e.dxftype()
+            if t == "INSERT":
+                if depth >= max_depth:
+                    continue            # 순환 참조·과도한 중첩 방어
+                blk = None
+                try:
+                    blk = doc.blocks.get(e.dxf.name)
+                except Exception:
+                    blk = None
+                if blk is None:
+                    continue
+                # INSERT 가 얹힌 레이어가 꺼져 있으면 그 안의 것도 안 보인다
+                if not _layer_visible(doc, e.dxf.layer):
+                    continue
+                m = e.matrix44()          # 스케일·회전·이동을 ezdxf 가 계산해 준다
+                if mat is not None:
+                    m = m @ mat
+                yield from walk(blk, m, _effective_layer(e, parent_layer), depth + 1)
+                continue
+
+            if t not in types:
+                continue
+            lay = _effective_layer(e, parent_layer)
+            if lay not in layers:
+                continue
+            if not _layer_visible(doc, lay):
+                continue
+            txt = normalize_dxf_text(e)
+            if not txt:
+                continue
+            pos = text_position(e)        # R-F1: 정렬 보정된 실제 위치
+            if mat is not None:
+                pos = mat.transform(pos)
+            height = getattr(e.dxf, "height", None) or getattr(e.dxf, "char_height", None)
+            yield (pos.x, pos.y, txt, height)
+
+    yield from walk(doc.modelspace(), None, None, 0)

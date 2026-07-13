@@ -1,16 +1,48 @@
 # -*- coding: utf-8 -*-
-"""인접행렬 - 방 경계가 없을 때의 최근접 k 근사.
+"""인접행렬 - 두 가지 방법.
 
-로드맵: T2.1.2
-현 데이터는 방 경계 폴리곤이 없다(XREF 벽체 미수령). 그래서 boundary 교차 대신
-같은 층 내 최근접 k개로 인접을 근사한다(method='nearest'). 경계 확보 시
-buffer 교차(method='polygon')로 승격 예정. 무방향 간선, room_a < room_b 로 저장(R-G8).
+  polygon (정밀)  : 벽 flood-fill 로 얻은 방 영역이 서로 닿는가 (geometry/boundaries.py)
+                    → **이게 정답이다.** ADJ-001·PRES-002/003 이 이 정확도를 요구한다.
+  nearest (근사)  : 방 경계를 못 구했을 때의 폴백. 같은 층 최근접 k개.
+                    오탐/누락이 있어 규칙을 켜기엔 부족하다.
+
+무방향 간선, room_a < room_b 로 저장(R-G8).
 """
 from __future__ import annotations
 
 import math
 
 from ..core.db import connect
+
+
+def load_pairs(run_id: str, pairs: list[tuple[str, str]], method: str = "polygon") -> int:
+    """방번호 쌍 목록을 room_adjacency 에 적재한다(정밀 인접).
+
+    boundaries.build() 가 돌려준 (room_no, room_no) 쌍을 방 id 로 바꿔 넣는다.
+    기존 근사 간선은 지운다 — 두 방법이 섞이면 어느 것을 믿을지 알 수 없다.
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT room_no, id FROM room WHERE run_id=%s AND room_no IS NOT NULL",
+            (run_id,),
+        )
+        id_by = dict(cur.fetchall())
+
+        edges: set[tuple[int, int]] = set()
+        for a, b in pairs:
+            ia, ib = id_by.get(a), id_by.get(b)
+            if ia is None or ib is None:
+                continue                       # 경계는 잡혔는데 방이 없다 = 있을 수 없음
+            edges.add((ia, ib) if ia < ib else (ib, ia))
+
+        cur.execute("DELETE FROM room_adjacency WHERE run_id=%s", (run_id,))
+        for a, b in edges:
+            cur.execute(
+                "INSERT INTO room_adjacency (run_id, room_a, room_b, method) VALUES (%s,%s,%s,%s)",
+                (run_id, a, b, method),
+            )
+        conn.commit()
+        return len(edges)
 
 
 def build(run_id: str, k: int = 3, same_floor: bool = True) -> int:

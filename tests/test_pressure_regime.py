@@ -39,6 +39,28 @@ def test_regime_특수제제가_분진공정보다_우선():
     assert infer_regime("세포독성 항암제 타정실") == HAZARD
 
 
+def test_regime_설비실은_중립_숫자가_끼어도():
+    """★실제 도면에서 잡은 오분류.
+
+    중립 낱말을 '기계실'로 뒀더니 `기계1실`·`기계 2실` 을 놓쳐 **보호형으로 오분류**했다.
+    `공조실`·`집진기실`·`외조기실` 같은 설비실은 목록에 아예 없었다.
+    → 낱말을 짧게(숫자가 끼어도 걸리게) 잡는다.
+    """
+    for n in ["기계1실", "기계 2실", "공조실", "집진기실", "집진실",
+              "외조기실-2", "전기실", "예비실", "다용도실", "방풍실"]:
+        assert infer_regime(n) == NEUTRAL, n
+
+
+def test_regime_분진공정이_중립낱말보다_우선():
+    """★실제 도면에서 잡은 오분류.
+
+    `선별 3실(예비)` 가 '예비'(중립 낱말) 때문에 중립으로 빠졌다.
+    예비든 뭐든 **선별실은 분진이 난다.** 분진 판별이 중립보다 먼저여야 한다.
+    """
+    assert infer_regime("선별 3실(예비)") == CONTAIN
+    assert infer_regime("예비 칭량실") == CONTAIN
+
+
 def test_regime_복도가_분진공정보다_우선():
     """★'정립실복도' 는 복도지 정립실이 아니다.
 
@@ -128,6 +150,32 @@ def test_pres003_분진실이_복도보다_고압이면_위반_압력근거():
              RoomView(room_no="C1", name="복도", grade="CNC", regime=NEUTRAL, pressure_pa=15)]
     v = pres_003.evaluate([], [AdjPair("T1", "C1")], rooms, CFG3)
     assert len(v) == 1 and v[0]["evidence"]["근거"] == "pressure_pa"
+
+
+def test_pres003_상대가_복도가_아니어도_잡는다():
+    """★실제 도면에서 3건을 놓쳤다.
+
+    처음엔 저압쪽이 '복도'일 때만 봤다. 그런데 실제로는:
+        contain → neutral (보관실·기계실) 2건
+        contain → protect (청정실)      1건  ← 이게 제일 나쁘다
+    분진이 나가는 곳이 복도든 보관실이든 청정실이든 **봉쇄 실패**다.
+    """
+    rooms = [RoomView(room_no="T1", name="타정실", grade="D", regime=CONTAIN),
+             RoomView(room_no="S1", name="반제품 보관실", grade="D", regime=NEUTRAL),
+             RoomView(room_no="C1", name="무균 조제실", grade="C", regime=PROTECT)]
+    rels = [PressureRel(room_high_no="T1", room_low_no="S1"),   # 분진 → 보관실
+            PressureRel(room_high_no="T1", room_low_no="C1")]   # 분진 → 청정실
+    v = pres_003.evaluate(rels, [], rooms, CFG3)
+    assert len(v) == 2
+    assert all("봉쇄 실패" in x["message"] for x in v)
+
+
+def test_pres003_분진구역끼리는_문제_아님():
+    """contain → contain 은 둘 다 분진 구역이라 정상이다(실제 도면에 14건 있었다)."""
+    rooms = [RoomView(room_no="T1", name="타정실", grade="D", regime=CONTAIN),
+             RoomView(room_no="T2", name="혼합실", grade="D", regime=CONTAIN)]
+    rels = [PressureRel(room_high_no="T1", room_low_no="T2")]
+    assert pres_003.evaluate(rels, [], rooms, CFG3) == []
 
 
 def test_pres003_정상_봉쇄는_위반_아님():

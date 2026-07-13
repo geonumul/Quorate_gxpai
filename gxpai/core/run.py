@@ -11,6 +11,7 @@ import time
 
 import ezdxf
 from ezdxf import recover
+from psycopg.types.json import Json          # 방 경계 폴리곤을 JSONB 로 적재
 
 from ..ingest.extractors.equipment import EquipmentExtractor
 from ..ingest.extractors.floorplan import FloorplanExtractor
@@ -51,9 +52,11 @@ def ingest(facility_id: str) -> dict:
     profile_version = str(profile.get("profile_version", "0"))
     raw = raw_dir() / facility_id
 
+    from ..ingest.extractors.pressure_value import PressureValueExtractor
+
     fp_ex, pr_ex = FloorplanExtractor(), PressureExtractor()
     eq_ex, hv_ex, gr_ex = EquipmentExtractor(), HvacExtractor(), GradeExtractor()
-    ov_ex = OverviewExtractor()
+    ov_ex, pv_ex = OverviewExtractor(), PressureValueExtractor()
     floor_rooms: list[dict] = []
     pres_rooms: list[dict] = []
     equipment: list[dict] = []
@@ -61,8 +64,12 @@ def ingest(facility_id: str) -> dict:
     overview: list[dict] = []
     arrows: list[dict] = []
     ta_values: list[dict] = []
+    grade_recs: list[dict] = []      # 방번호 → 청정등급
+    pa_recs: list[dict] = []         # 방번호 → 절대압력(Pa)
+    floor_doc = None                 # 방 경계(벽) 추출용 평면도 DXF
     counts = {"floorplan": 0, "pressure": 0, "hvac": 0, "overview": 0,
-              "ta_value": 0, "pressure_arrow": 0, "grade_zone": 0}
+              "ta_value": 0, "pressure_arrow": 0, "grade_zone": 0,
+              "room_grade": 0, "room_pressure": 0, "pressure_unmatched": 0}
 
     missing_files: list[str] = []
     for d in fac["drawings"]:
@@ -72,13 +79,26 @@ def ingest(facility_id: str) -> dict:
             continue
         if d["kind"] == "floorplan":
             doc = _read_dxf(str(path))
+            floor_doc = doc                      # 방 경계(벽) 추출에 다시 쓴다
             for rec in fp_ex.extract(doc, profile):
                 rec.payload["source_drawing_id"] = d["id"]
                 floor_rooms.append(rec.payload)
             for rec in eq_ex.extract(doc, profile):
                 equipment.append(rec.payload)
+            # ★등급을 '세기만' 하고 버리던 버그: room_grade 를 실제로 모은다.
             for rec in gr_ex.extract(doc, profile):
-                counts["grade_zone"] += 1
+                if rec.kind == "room_grade":
+                    grade_recs.append(rec.payload)
+                    counts["room_grade"] += 1
+                else:
+                    counts["grade_zone"] += 1
+            # 절대압력(Pa) - 평면도에 표기된 경우
+            for rec in pv_ex.extract(doc, profile):
+                if rec.kind == "room_pressure":
+                    pa_recs.append(rec.payload)
+                    counts["room_pressure"] += 1
+                elif rec.kind == "pressure_unmatched":
+                    counts["pressure_unmatched"] += rec.payload["count"]
             counts["floorplan"] += 1
         elif d["kind"] == "pressure":
             doc = _read_dxf(str(path))
@@ -107,6 +127,25 @@ def ingest(facility_id: str) -> dict:
 
     merged = _merge(floor_rooms, pres_rooms)
 
+    # ── 병합된 방에 등급·절대압력·압력유형을 얹는다 ────────────────
+    n_grade = apply_grades(merged, grade_recs)
+    n_pa = apply_pressures(merged, pa_recs)
+    regime_counts = apply_regimes(merged, profile)
+
+    # ── 방 경계(벽 flood-fill): 면적 + 정밀 인접 ──────────────────
+    # 프로파일에 boundaries.wall_layers 가 없으면 조용히 건너뛴다(기존 최근접-k 인접 유지).
+    boundary_res = None
+    if floor_doc is not None and (profile.get("boundaries") or {}).get("wall_layers"):
+        from ..geometry import boundaries as _b
+        boundary_res = _b.build(floor_doc, merged, profile)
+        area_by = {r.room_no: r for r in boundary_res.rooms}
+        for r in merged:
+            br = area_by.get(r.get("room_no"))
+            if br:
+                r["area_m2"] = br.area_m2
+                r["boundary"] = br.polygon
+                r["boundary_method"] = "floodfill"
+
     # 나노초 해상도로 run_id 발급: 같은 초에 두 번 ingest 해도 PK 충돌하지 않게(M5).
     run_id = f"run_{facility_id}_{time.time_ns()}"
     # 감사추적(M6/M7): run 행을 먼저 'running' 으로 별도 커밋 → 이후 실패해도 이력이 남는다.
@@ -116,9 +155,16 @@ def ingest(facility_id: str) -> dict:
         n_eq = _load(facility_id, run_id, profile_version, merged, equipment, ahus,
                      overview, arrows, ta_values)
         _seed_questions(facility_id)
-        # 인접 근사 + 화살표↔방 귀속도 성공 판정에 포함(M8): 파생까지 끝나야 'done'.
+        # 인접 + 화살표↔방 귀속도 성공 판정에 포함(M8): 파생까지 끝나야 'done'.
         from ..geometry import adjacency, pressure_links
-        n_adj = adjacency.build(run_id)
+        # ★방 경계가 잡혔으면 **폴리곤 기반 정밀 인접**을 쓴다(최근접-k 근사보다 정확).
+        #   근사 인접은 오탐/누락이 나서 ADJ-001·PRES-002/003 을 못 켰다.
+        if boundary_res and boundary_res.adjacency:
+            n_adj = adjacency.load_pairs(run_id, boundary_res.adjacency, method="polygon")
+            adj_method = "polygon"
+        else:
+            n_adj = adjacency.build(run_id)
+            adj_method = "nearest"
         n_plinks = pressure_links.build(run_id)
     except Exception as exc:  # noqa: BLE001 - 어떤 실패든 감사에 남긴다
         _finish_run(run_id, "failed", str(exc)[:2000])
@@ -137,9 +183,62 @@ def ingest(facility_id: str) -> dict:
         "n_pressure_arrows": len(arrows),
         "n_ta_values": len(ta_values),
         "n_adjacency": n_adj,
+        "adjacency_method": adj_method,          # polygon(정밀) | nearest(근사)
         "n_pressure_links": n_plinks,
+        "n_grade_applied": n_grade,              # 등급이 붙은 방 수 (0 이면 도면에 표기 없음)
+        "n_pressure_pa_applied": n_pa,           # 절대압력이 붙은 방 수
+        "regime_counts": regime_counts,          # protect/contain/hazard/neutral 분포
+        "n_boundary_rooms": len(boundary_res.rooms) if boundary_res else 0,
+        "boundary_failed": boundary_res.failed if boundary_res else [],
         "missing_drawings": missing_files,
     }
+
+
+def apply_grades(merged: list[dict], grades: list[dict]) -> int:
+    """등급 추출 결과(room_grade)를 병합된 방에 얹는다. 순수 함수.
+
+    등급은 **방번호로** 붙인다(좌표 매칭은 추출기가 이미 끝냈다).
+    도면에 등급 표기가 없으면 grades 가 비고, 방의 grade 는 None 으로 남는다 — 그게 정상이다.
+    """
+    by_no = {g["room_no"]: g["grade"] for g in grades if g.get("room_no")}
+    n = 0
+    for r in merged:
+        g = by_no.get(r.get("room_no"))
+        if g:
+            r["grade"] = g
+            n += 1
+    return n
+
+
+def apply_pressures(merged: list[dict], pas: list[dict]) -> int:
+    """절대압력(Pa) 추출 결과를 병합된 방에 얹는다. 순수 함수."""
+    by_no = {p["room_no"]: p["pressure_pa"] for p in pas if p.get("room_no")}
+    n = 0
+    for r in merged:
+        pa = by_no.get(r.get("room_no"))
+        if pa is not None:
+            r["pressure_pa"] = pa
+            n += 1
+    return n
+
+
+def apply_regimes(merged: list[dict], profile: dict) -> dict[str, int]:
+    """압력 유형(regime)을 방마다 정한다. 순수 함수.
+
+    이름으로 **추정**하고, 프로파일 `pressure_regime.overrides` 가 있으면 그게 이긴다.
+    regime_source 로 어디서 온 값인지 남긴다(감사 추적).
+    ※이름 추론은 확정이 아니다 — 특히 '충전/충진'은 시설 종류에 따라 정반대다.
+    """
+    from ..compliance.checks._regime import resolve_regime
+
+    overrides = ((profile.get("pressure_regime") or {}).get("overrides")) or {}
+    counts: dict[str, int] = {}
+    for r in merged:
+        reg, src = resolve_regime(r.get("name"), r.get("grade"), overrides, r.get("room_no"))
+        r["regime"] = reg
+        r["regime_source"] = src
+        counts[reg] = counts.get(reg, 0) + 1
+    return counts
 
 
 def _merge(floor_rooms, pres_rooms) -> list[dict]:
@@ -216,11 +315,18 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
             cur.execute(
                 """INSERT INTO room (facility_id, run_id, room_no, name, pressure_name,
                                      floor, sheet, plan_x, plan_y, pres_x, pres_y,
-                                     source_drawing_id, review_status)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'unreviewed') RETURNING id""",
+                                     source_drawing_id, review_status,
+                                     grade, pressure_pa, regime, regime_source,
+                                     area_m2, boundary, boundary_method)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'unreviewed',
+                           %s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                 (facility_id, run_id, r.get("room_no"), r.get("name"), r.get("pressure_name"),
                  r.get("floor"), r.get("sheet"), r.get("plan_x"), r.get("plan_y"),
-                 r.get("pres_x"), r.get("pres_y"), r.get("source_drawing_id")),
+                 r.get("pres_x"), r.get("pres_y"), r.get("source_drawing_id"),
+                 r.get("grade"), r.get("pressure_pa"), r.get("regime"), r.get("regime_source"),
+                 r.get("area_m2"),
+                 Json(r["boundary"]) if r.get("boundary") else None,
+                 r.get("boundary_method")),
             )
             rid = cur.fetchone()[0]
             room_points.append((rid, r.get("plan_x"), r.get("plan_y")))
