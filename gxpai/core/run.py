@@ -15,6 +15,7 @@ from psycopg.types.json import Json          # 방 경계 폴리곤을 JSONB 로
 
 from ..ingest.extractors.equipment import EquipmentExtractor
 from ..ingest.extractors.floorplan import FloorplanExtractor
+from ..ingest.extractors.airflow import AirflowExtractor
 from ..ingest.extractors.gauge import GaugeExtractor
 from ..ingest.extractors.interlock import InterlockExtractor
 from ..ingest.extractors.grades import GradeExtractor
@@ -57,7 +58,7 @@ def ingest(facility_id: str) -> dict:
     from ..ingest.extractors.pressure_value import PressureValueExtractor
 
     fp_ex, pr_ex = FloorplanExtractor(), PressureExtractor()
-    ga_ex, il_ex = GaugeExtractor(), InterlockExtractor()
+    ga_ex, il_ex, af_ex = GaugeExtractor(), InterlockExtractor(), AirflowExtractor()
     eq_ex, hv_ex, gr_ex = EquipmentExtractor(), HvacExtractor(), GradeExtractor()
     ov_ex, pv_ex = OverviewExtractor(), PressureValueExtractor()
     floor_rooms: list[dict] = []
@@ -67,6 +68,7 @@ def ingest(facility_id: str) -> dict:
     overview: list[dict] = []
     arrows: list[dict] = []
     ta_values: list[dict] = []
+    airflows: list[dict] = []        # 급기 풍량(CMH). ★규칙 없음 — 데이터만 적재
     interlocks: list[dict] = []      # 인터락 위치 (별표1 4-파: A/B 연결 에어락은 인터락 필수)
     gauges: list[dict] = []          # 차압계 위치 (별표1 4-너: 청정실 경계에 설치 의무)
     grade_recs: list[dict] = []      # 방번호 → 청정등급
@@ -75,7 +77,7 @@ def ingest(facility_id: str) -> dict:
     counts = {"floorplan": 0, "pressure": 0, "hvac": 0, "overview": 0,
               "ta_value": 0, "pressure_arrow": 0, "grade_zone": 0,
               "room_grade": 0, "room_pressure": 0, "pressure_unmatched": 0,
-              "gauge": 0, "interlock": 0}
+              "gauge": 0, "interlock": 0, "airflow": 0}
 
     missing_files: list[str] = []
     for d in fac["drawings"]:
@@ -126,6 +128,15 @@ def ingest(facility_id: str) -> dict:
             for rec in ga_ex.extract(doc, profile):
                 gauges.append(rec.payload)
                 counts["gauge"] += 1
+        elif d["kind"] == "ceiling":
+            # ★천정기구배치도. 급기 풍량(CMH)이 여기 있다.
+            #   단위는 도면이 명시했다(레이어 B-ZONE 의 '풍량(CMH)').
+            #   ⚠환기 횟수(ACH) 규칙은 **만들지 않는다** — 현행 고시에 수치가 없다.
+            #     자사 환기 기준 + 천장고가 오면 그때 만든다.
+            doc = _read_dxf(str(path))
+            for rec in af_ex.extract(doc, profile):
+                airflows.append(rec.payload)
+                counts["airflow"] += 1
         elif d["kind"] == "interlock":
             doc = _read_dxf(str(path))
             for rec in il_ex.extract(doc, profile):
@@ -156,6 +167,8 @@ def ingest(facility_id: str) -> dict:
     #   (rels=[] · door_pairs=[] · has_gauge=false 에 이어 **네 번째** 같은 함정이다)
     if interlocks:
         _attach_interlocks(merged, interlocks)
+    if airflows:
+        _attach_airflow(merged, airflows)
 
     # ── 방 경계(벽 flood-fill): 면적 + 정밀 인접 ──────────────────
     # 프로파일에 boundaries.wall_layers 가 없으면 조용히 건너뛴다(기존 최근접-k 인접 유지).
@@ -231,6 +244,7 @@ def ingest(facility_id: str) -> dict:
         "n_overview_items": len(overview),
         "n_pressure_arrows": len(arrows),
         "n_gauges": len(gauges),
+        "n_airflow": len(airflows),
         "n_ta_values": len(ta_values),
         "n_adjacency": n_adj,
         "adjacency_method": adj_method,          # polygon(정밀) | nearest(근사)
@@ -334,6 +348,26 @@ def _nearest_room_id(x, y, room_points, max_d=8000):
     return best
 
 
+AIRFLOW_RADIUS_MM = 4000.0    # 급기구 풍량 숫자를 방에 붙이는 반경
+
+
+def _attach_airflow(rooms: list[dict], flows: list[dict]) -> int:
+    """급기 풍량(CMH)을 방에 **합산**한다. 한 방에 급기구가 여러 개일 수 있다."""
+    pts = [(r, r.get("plan_x"), r.get("plan_y")) for r in rooms]
+    pts = [(r, x, y) for r, x, y in pts if x is not None and y is not None]
+    n = 0
+    for f in flows:
+        cand = [(math.hypot(x - f["x"], y - f["y"]), i) for i, (r, x, y) in enumerate(pts)]
+        if not cand:
+            continue
+        d, i = min(cand)
+        if d <= AIRFLOW_RADIUS_MM:
+            r = pts[i][0]
+            r["airflow_cmh"] = (r.get("airflow_cmh") or 0.0) + f["cmh"]
+            n += 1
+    return n
+
+
 INTERLOCK_RADIUS_MM = 3000.0  # 인터락 선 중점에서 이 거리 안의 방에 귀속
 
 
@@ -422,9 +456,10 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
                                      floor, sheet, plan_x, plan_y, pres_x, pres_y,
                                      source_drawing_id, review_status,
                                      grade, pressure_pa, regime, regime_source,
-                                     area_m2, boundary, boundary_method, interlock_count)
+                                     area_m2, boundary, boundary_method, interlock_count,
+                                     airflow_cmh)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'unreviewed',
-                           %s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                           %s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                 (facility_id, run_id, r.get("room_no"), r.get("name"), r.get("pressure_name"),
                  r.get("floor"), r.get("sheet"), r.get("plan_x"), r.get("plan_y"),
                  r.get("pres_x"), r.get("pres_y"), r.get("source_drawing_id"),
@@ -434,7 +469,9 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
                  r.get("boundary_method"),
                  # ★인터락 도면이 없으면 None(NULL). 0 으로 채우면 "인터락이 하나도 없다"는
                  #   거짓 사실이 되어 전 에어락이 위반이 된다.
-                 r.get("interlock_count")),
+                 r.get("interlock_count"),
+                 # 급기 풍량(CMH). 규칙은 없다 — 데이터로만 둔다.
+                 r.get("airflow_cmh")),
             )
             rid = cur.fetchone()[0]
             room_points.append((rid, r.get("plan_x"), r.get("plan_y")))
