@@ -45,7 +45,15 @@ DEFAULT_RANK = {"A": 5, "B": 4, "C": 3, "D": 2, "CNC": 1, "NC": 0}
 
 
 def is_gowning(name: str | None, words=GOWN_WORDS) -> bool:
+    """★`무균 **충전실**` 은 '전실'을 품고 있지만 관문이 아니다.
+
+    관문으로 오인하면 그래프에서 그 노드를 **끊어 버려** 우회로를 못 찾는다 —
+    **진짜 위반을 숨긴다.** 시험이 잡았다.
+    """
+    from ._regime import NOT_AIRLOCK
     n = (name or "").replace(" ", "").lower()
+    if any(w in n for w in NOT_AIRLOCK):
+        return False
     return any(w.replace(" ", "").lower() in n for w in words)
 
 

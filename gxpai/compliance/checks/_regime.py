@@ -178,3 +178,31 @@ def resolve_regime(name: str | None, grade: str | None,
     if overrides and room_no and room_no in overrides:
         return overrides[room_no], "profile"
     return infer_regime(name, grade), "inferred"
+
+
+# ── 에어락(전실) 판별 — 여러 규칙이 함께 쓴다 ──────────────────────
+AIRLOCK_WORDS = ("전실", "에어락", "에어록", "air lock", "airlock",
+                 "패스박스", "pass box", "해치", "hatch")
+
+# ★★`전실` 은 **다른 낱말에 끼어 있다.**
+#     `무균 **충전실**` · `캡슐 **충전실**` · `**변전실**` · `**발전실**`
+#   전부 '전실'을 품고 있지만 **에어락이 아니다.**
+#
+#   시험이 잡았다. 이걸 놓치면 **에어락으로 오인해 그 방을 검사에서 빼버린다** —
+#   ADJ-001(등급 급변)은 예외 처리하고, ADJ-002(갱의실 우회)는 관문으로 취급해
+#   **진짜 위반을 숨긴다.** 거짓 위반보다 더 나쁘다(놓치는 쪽이니까).
+NOT_AIRLOCK = ("충전실", "충진실", "변전실", "발전실", "수전실", "배전실")
+
+
+def is_airlock(name: str | None, words=AIRLOCK_WORDS,
+               not_words=NOT_AIRLOCK) -> bool:
+    """에어락·전실·패스박스인가.
+
+    ★`충전실`·`변전실` 처럼 **'전실'을 품고 있지만 에어락이 아닌** 낱말을 먼저 걸러낸다.
+    """
+    if not name:
+        return False
+    n = name.replace(" ", "").lower()
+    if any(w.replace(" ", "").lower() in n for w in not_words):
+        return False
+    return any(w.replace(" ", "").lower() in n for w in words)

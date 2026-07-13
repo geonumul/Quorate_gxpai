@@ -352,3 +352,39 @@ def test_regime_괄호와_숫자는_머리말이_아니다():
     assert head_form("(N)반제품 보관실(선별전)") == "반제품보관실"
     assert head_form("(N)코팅 기계 2실") == "코팅기계실"
     assert head_form("(N)선별 3실(예비)") == "선별실"
+
+
+# ── '전실'이 다른 낱말에 끼어 있다 ────────────────────────────────
+def test_충전실은_전실이_아니다():
+    """★★시험이 잡은 교차 버그. 세 규칙에 동시에 퍼져 있었다.
+
+    `무균 **충전실**` · `캡슐 **충전실**` · `**변전실**` · `**발전실**`
+    전부 '전실'을 품고 있지만 **에어락이 아니다.**
+
+    에어락으로 오인하면 무슨 일이 나나 — **놓친다**(거짓 위반보다 나쁘다):
+      ADJ-001(등급 급변)   그 방을 **예외 처리해 검사에서 빼버린다**
+      ADJ-002(갱의실 우회) **관문**으로 취급해 그래프에서 끊어 버린다 → 우회로를 못 찾는다
+      ADJ-005(인터락)      **에어락**으로 보고 인터락을 요구한다 → 거짓 위반
+    """
+    from gxpai.compliance.checks._regime import is_airlock
+
+    # 에어락이다
+    for n in ["무균 전실", "타정1실 전실", "물류 전실 2", "에어락", "패스박스", "이송 해치"]:
+        assert is_airlock(n), n
+
+    # ★'전실'을 품고 있지만 에어락이 **아니다**
+    for n in ["무균 충전실", "캡슐 충전실", "바이알 충진실", "변전실", "발전실", "수전실"]:
+        assert not is_airlock(n), n
+
+
+def test_충전실_오인이_세_규칙에서_다_막혔나():
+    """세 규칙이 **같은 판별 함수**를 쓰는지 고정한다. 한 곳만 고치면 또 샌다."""
+    from gxpai.compliance.checks import adj_001, adj_002, adj_005
+
+    assert not adj_005.is_airlock("무균 충전실")
+    assert not adj_002.is_gowning("무균 충전실")
+    assert not adj_001._is_airlock("무균 충전실", adj_001.DEFAULT_AIRLOCK)
+    # 진짜 전실은 셋 다 알아본다
+    assert adj_005.is_airlock("무균 전실")
+    assert adj_002.is_gowning("무균 전실")
+    assert adj_001._is_airlock("무균 전실", adj_001.DEFAULT_AIRLOCK)

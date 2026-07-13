@@ -28,14 +28,17 @@ from __future__ import annotations
 
 from ._model import AdjPair, RoomView, load_adjacency, load_rooms
 
-DEFAULT_AIRLOCK = ("전실", "에어락", "air lock", "airlock", "패스박스", "pass box")
+from ._regime import AIRLOCK_WORDS as DEFAULT_AIRLOCK
+from ._regime import is_airlock as _is_airlock_shared
 
 
 def _is_airlock(name: str | None, words) -> bool:
-    if not name:
-        return False
-    n = name.replace(" ", "").lower()
-    return any(w.replace(" ", "").lower() in n for w in words)
+    """★`무균 **충전실**` 은 '전실'을 품고 있지만 에어락이 아니다.
+
+    에어락으로 오인하면 이 규칙이 그 방을 **예외 처리해 검사에서 빼버린다** —
+    진짜 등급 급변을 놓친다. 거짓 위반보다 나쁘다. 시험이 잡았다.
+    """
+    return _is_airlock_shared(name, words)
 
 
 def evaluate(adjacency: list[AdjPair], rooms: list[RoomView], cfg: dict) -> list[dict]:

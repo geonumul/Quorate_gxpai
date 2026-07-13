@@ -20,8 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.stdout.reconfigure(encoding="utf-8")
 
 from gxpai.compliance.checks import (adj_001, adj_002, adj_003,  # noqa: E402
-                                     adj_004, pres_001, pres_002, pres_003,
-                                     pres_004, pres_005)
+                                     adj_004, adj_005, pres_001, pres_002,
+                                     pres_003, pres_004, pres_005)
 from gxpai.compliance.checks._model import (load_adjacency, load_pressure_rels,  # noqa: E402
                                             load_rooms)
 from gxpai.core.db import connect  # noqa: E402
@@ -48,6 +48,7 @@ from gxpai.compliance.checks.adj_004 import is_rest_area        # noqa: E402
 
 linked = [r for r in rels if r.room_high_no and r.room_low_no and not r.approx]
 gauged = [r for r in rels if r.has_gauge]
+locked = [r for r in rooms if r.interlock_count]
 doors = [p for p in adj if p.via_door]
 toilets = [r for r in rooms if is_toilet(r.name)]
 rests = [r for r in rooms if is_rest_area(r.name) and r.plan_x is not None]
@@ -70,6 +71,7 @@ CHECKS = [
     ("ADJ-002", lambda c: adj_002.evaluate(adj, rooms, c)),
     ("ADJ-003", lambda c: adj_003.evaluate(adj, rooms, c)),
     ("ADJ-004", lambda c: adj_004.evaluate(adj, rooms, c)),
+    ("ADJ-005", lambda c: adj_005.evaluate(adj, rooms, c)),
 ]
 
 for rid, fn in CHECKS:
@@ -102,6 +104,8 @@ for rid, fn in CHECKS:
             why.append("화살표 방 귀속·절대압력 둘 다 있어야 대조 가능")
         if rid == "PRES-005" and not gauged:
             why.append("차압계 도면 없음 — '차압계가 없다'와 혼동하면 안 된다")
+        if rid == "ADJ-005" and not locked:
+            why.append("인터락 도면 없음 — '인터락이 없다'와 혼동하면 안 된다")
         if rid in ("ADJ-003", "ADJ-004") and not doors:
             why.append("문 인접(동선) 없음 — 문 데이터를 못 믿는 도면")
         if rid == "ADJ-003" and not toilets:

@@ -16,6 +16,7 @@ from psycopg.types.json import Json          # 방 경계 폴리곤을 JSONB 로
 from ..ingest.extractors.equipment import EquipmentExtractor
 from ..ingest.extractors.floorplan import FloorplanExtractor
 from ..ingest.extractors.gauge import GaugeExtractor
+from ..ingest.extractors.interlock import InterlockExtractor
 from ..ingest.extractors.grades import GradeExtractor
 from ..ingest.extractors.hvac import HvacExtractor
 from ..ingest.extractors.overview import OverviewExtractor
@@ -56,7 +57,7 @@ def ingest(facility_id: str) -> dict:
     from ..ingest.extractors.pressure_value import PressureValueExtractor
 
     fp_ex, pr_ex = FloorplanExtractor(), PressureExtractor()
-    ga_ex = GaugeExtractor()
+    ga_ex, il_ex = GaugeExtractor(), InterlockExtractor()
     eq_ex, hv_ex, gr_ex = EquipmentExtractor(), HvacExtractor(), GradeExtractor()
     ov_ex, pv_ex = OverviewExtractor(), PressureValueExtractor()
     floor_rooms: list[dict] = []
@@ -66,6 +67,7 @@ def ingest(facility_id: str) -> dict:
     overview: list[dict] = []
     arrows: list[dict] = []
     ta_values: list[dict] = []
+    interlocks: list[dict] = []      # 인터락 위치 (별표1 4-파: A/B 연결 에어락은 인터락 필수)
     gauges: list[dict] = []          # 차압계 위치 (별표1 4-너: 청정실 경계에 설치 의무)
     grade_recs: list[dict] = []      # 방번호 → 청정등급
     pa_recs: list[dict] = []         # 방번호 → 절대압력(Pa)
@@ -73,7 +75,7 @@ def ingest(facility_id: str) -> dict:
     counts = {"floorplan": 0, "pressure": 0, "hvac": 0, "overview": 0,
               "ta_value": 0, "pressure_arrow": 0, "grade_zone": 0,
               "room_grade": 0, "room_pressure": 0, "pressure_unmatched": 0,
-              "gauge": 0}
+              "gauge": 0, "interlock": 0}
 
     missing_files: list[str] = []
     for d in fac["drawings"]:
@@ -124,6 +126,11 @@ def ingest(facility_id: str) -> dict:
             for rec in ga_ex.extract(doc, profile):
                 gauges.append(rec.payload)
                 counts["gauge"] += 1
+        elif d["kind"] == "interlock":
+            doc = _read_dxf(str(path))
+            for rec in il_ex.extract(doc, profile):
+                interlocks.append(rec.payload)
+                counts["interlock"] += 1
         elif d["kind"] == "hvac":
             doc = _read_dxf(str(path))
             for rec in hv_ex.extract(doc, profile):
@@ -142,6 +149,13 @@ def ingest(facility_id: str) -> dict:
     n_grade = apply_grades(merged, grade_recs)
     n_pa = apply_pressures(merged, pa_recs)
     regime_counts = apply_regimes(merged, profile)
+
+    # ── 인터락을 방에 붙인다 ────────────────────────────────────
+    # ★인터락 도면이 없는 시설이면 interlock_count 를 **NULL 로 둔다**.
+    #   0 으로 채우면 "인터락이 하나도 없다"는 거짓 사실이 되어 전 에어락이 위반이 된다.
+    #   (rels=[] · door_pairs=[] · has_gauge=false 에 이어 **네 번째** 같은 함정이다)
+    if interlocks:
+        _attach_interlocks(merged, interlocks)
 
     # ── 방 경계(벽 flood-fill): 면적 + 정밀 인접 ──────────────────
     # 프로파일에 boundaries.wall_layers 가 없으면 조용히 건너뛴다(기존 최근접-k 인접 유지).
@@ -320,6 +334,33 @@ def _nearest_room_id(x, y, room_points, max_d=8000):
     return best
 
 
+INTERLOCK_RADIUS_MM = 3000.0  # 인터락 선 중점에서 이 거리 안의 방에 귀속
+
+
+def _attach_interlocks(rooms: list[dict], locks: list[dict]) -> int:
+    """인터락 선의 중점을 **가장 가까운 방 하나**에 붙인다.
+
+    ⚠ 전실이 아주 작으면(무균 전실 1.5㎡) 중점이 옆방 라벨에 더 가까울 수 있다.
+      그래서 '가장 가까운 하나'에만 붙이고, 반경을 넘으면 붙이지 않는다.
+      귀속이 의심스러우면 규칙이 '보류'로 내보낸다. 조용히 틀리지 않는다.
+    """
+    pts = [(r, r.get("plan_x") or r.get("x"), r.get("plan_y") or r.get("y")) for r in rooms]
+    pts = [(r, x, y) for r, x, y in pts if x is not None and y is not None]
+    for r, _x, _y in pts:
+        r.setdefault("interlock_count", 0)
+    n = 0
+    for lk in locks:
+        cand = [(math.hypot(x - lk["x"], y - lk["y"]), i)
+                for i, (r, x, y) in enumerate(pts)]
+        if not cand:
+            continue
+        d, i = min(cand)
+        if d <= INTERLOCK_RADIUS_MM:
+            pts[i][0]["interlock_count"] = pts[i][0].get("interlock_count", 0) + 1
+            n += 1
+    return n
+
+
 GAUGE_RADIUS_MM = 3000.0     # 화살표에서 이 거리 안의 차압계를 '그 구간의 것'으로 본다
 
 
@@ -381,16 +422,19 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
                                      floor, sheet, plan_x, plan_y, pres_x, pres_y,
                                      source_drawing_id, review_status,
                                      grade, pressure_pa, regime, regime_source,
-                                     area_m2, boundary, boundary_method)
+                                     area_m2, boundary, boundary_method, interlock_count)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'unreviewed',
-                           %s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                           %s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                 (facility_id, run_id, r.get("room_no"), r.get("name"), r.get("pressure_name"),
                  r.get("floor"), r.get("sheet"), r.get("plan_x"), r.get("plan_y"),
                  r.get("pres_x"), r.get("pres_y"), r.get("source_drawing_id"),
                  r.get("grade"), r.get("pressure_pa"), r.get("regime"), r.get("regime_source"),
                  r.get("area_m2"),
                  Json(r["boundary"]) if r.get("boundary") else None,
-                 r.get("boundary_method")),
+                 r.get("boundary_method"),
+                 # ★인터락 도면이 없으면 None(NULL). 0 으로 채우면 "인터락이 하나도 없다"는
+                 #   거짓 사실이 되어 전 에어락이 위반이 된다.
+                 r.get("interlock_count")),
             )
             rid = cur.fetchone()[0]
             room_points.append((rid, r.get("plan_x"), r.get("plan_y")))
