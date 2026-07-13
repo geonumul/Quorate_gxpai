@@ -72,6 +72,10 @@ def _metrics(cur, run_id, facility_id) -> dict:
     ov = one("SELECT count(*) FROM facility_meta WHERE run_id=%s", run_id)
     # 2026-07-14 에 새로 얻은 것들
     bnd = one("SELECT count(*) FROM room WHERE run_id=%s AND area_m2 IS NOT NULL", run_id)
+    # 2026-07-14: 시트 6장 중 3장을 새로 열었다 (차압계·인터락·천정 풍량)
+    gauge = one("SELECT count(*) FROM pressure_relation WHERE run_id=%s AND has_gauge", run_id)
+    lock = one("SELECT coalesce(sum(interlock_count),0) FROM room WHERE run_id=%s", run_id)
+    flow = one("SELECT count(*) FROM room WHERE run_id=%s AND airflow_cmh IS NOT NULL", run_id)
     grd = one("SELECT count(*) FROM room WHERE run_id=%s AND grade IS NOT NULL", run_id)
     pa = one("SELECT count(*) FROM room WHERE run_id=%s AND pressure_pa IS NOT NULL", run_id)
     return {
@@ -84,6 +88,10 @@ def _metrics(cur, run_id, facility_id) -> dict:
         "인접(문/전체)": f"{adj_door}/{adj}",
         # ★화살표: '귀속' = 양쪽 방이 확정된 것. 나머지는 판정하지 않는다
         "차압 화살표(귀속/전체)": f"{arrows_ok}/{arrows}",
+        # ★차압계·인터락은 **다른 시트**에 있었다. 시트 하나만 보다가 통째로 놓칠 뻔했다.
+        "차압계 설치 구간": gauge,
+        "인터락": lock,
+        "급기 풍량 표기 방": flow,
         "설계개요 항목": ov,
     }
 
@@ -136,10 +144,23 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
     out.append(f'<div class="sub">facility={esc(facility_id)} · run={esc(run_id)} · '
                f'pipeline v{PIPELINE_VERSION}</div>')
 
-    out.append('<div class="banner">데이터 정합성 경고: 방 경계 폴리곤(XREF 벽체 미수령)과 '
-               '청정등급(Grade) 도면 미확보, 차압 화살표 방향 의미 미확정 상태입니다. '
-               '이로 인해 압력(PRES)·인접등급(ADJ) 규칙은 아직 실행하지 않았습니다. '
-               '현재 리포트는 라벨 정합성(LBL) 검증과 추출 품질 지표에 한정됩니다.</div>')
+    # ★배너를 **사실에 맞게** 유지한다. 예전 배너는 "XREF 미수령·Grade 미확보·화살표 미확정"
+    #   이라고 적혀 있었는데 셋 다 해결된 뒤에도 그대로였다. **리포트가 거짓말을 하고 있었다.**
+    #   (내 문서 안의 틀린 주장을 방치하지 않는다 — 이번 밤에만 세 번째다)
+    n_graded = metrics.get("청정등급") or 0
+    if not n_graded:
+        gate_why = ("이 도면에는 <b>청정등급 표기가 없습니다</b>(0건). "
+                    "등급이 있어야 판정할 수 있는 규칙(PRES-001 · ADJ-001/002/005)은 "
+                    "<b>판정 불가</b> 상태입니다.")
+    else:
+        gate_why = ("추출은 됐습니다(방 경계 · 문 동선 · 등급 · 절대압력 · 차압계 · 인터락). "
+                    "게이트가 잠긴 이유는 데이터가 아니라 <b>컨설턴트 미검수</b>입니다.")
+    out.append('<div class="banner"><b>게이트 잠김 — 압력(PRES)·인접(ADJ) 규칙은 '
+               '아직 실행하지 않습니다.</b><br>' + gate_why +
+               '<br>검수 전에는 위반 이력을 DB에 쓰지 않습니다. '
+               '무엇이 잡히는지는 <code>scripts/preview_rules.py</code> 로만 봅니다(dry-run).'
+               '<br>모든 추정은 <b>보류 · 발주처 확인 필요</b>입니다 — '
+               '<code>docs/발주처_확인요청서_2026-07-14.md</code></div>')
 
     out.append("<h2>품질 지표</h2><div class='metrics'>")
     for k, v in metrics.items():
