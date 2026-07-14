@@ -181,6 +181,8 @@ for n in nums:
 
 ax.set_aspect("equal")
 ax.axis("off")
-p = Path(r"C:\Users\8268g\AppData\Local\Temp\claude\d--14--Dev-Project-Quorate\8de2464b-86f1-41a2-955d-0256d2de803c\scratchpad\boundaries_check.png")
+# ★내 임시폴더 절대경로가 박혀 있었다 — 다른 기계에선 안 돈다.
+p = Path("artifacts") / "boundaries_check.png"
+p.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(p, bbox_inches="tight", facecolor="white")
 print(f"→ 검증 그림: {p.name}  (빨간 X = 실패한 방)")

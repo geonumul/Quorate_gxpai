@@ -1,7 +1,6 @@
 # GXPAI 도면 자동화 엔진 — 프로덕션 가이드라인 v2.0
 ### (다중 시설 확장 · 완전 제품화 로드맵 · 포트폴리오 마감 기준 포함)
 
-> VSCode 에이전트(Claude Code 등)와 개발자 본인의 **단일 진실 문서**.
 > v1과의 차이: "가볍게"를 버린다. 기업 납품 기준으로 처음부터
 > **다중 시설 데이터 파이프라인 + 영속 저장소 + 재현성**을 갖춘다.
 > 데이터가 1건이어도 N건 구조로 만든다. 1건은 N=1일 뿐이다.
@@ -62,7 +61,7 @@
 ## B.2 코드 아키텍처 — 파이프라인 프레임워크
 ```
 gxpai-engine/
-├── CLAUDE.md                      # 이 문서
+├── docs/GUIDELINE.md              # 이 문서
 ├── docker-compose.yml             # postgres + neo4j
 ├── pyproject.toml                 # 패키지화 (pip install -e .)
 ├── gxpai/
@@ -255,7 +254,7 @@ question(id, facility_id, topic, body, status, answer)     -- QUESTIONS를 DB로
 
 ## Stage 4 — Intelligence Layer (제품화, 계약 후반 또는 차기)
 
-- [ ] **T4.1** LLM 파서: 질의서/회의록/URS(문서) → PlanSpec 초안. Claude API + few-shot,
+- [ ] **T4.1** LLM 파서: 질의서/회의록/URS(문서) → PlanSpec 초안. LLM API(모델은 Stage 4 착수 시 선정) + few-shot,
   파싱 confidence per-field, 사람 검토 UI는 CLI diff로 대체. 목표 정확도 95% (계획서 기준) —
   측정 프로토콜(골드셋 10건) 먼저 정의
 - [ ] **T4.2** RAG: 방/규칙/과거 violations 텍스트를 pgvector 임베딩 → "이 방 배치의 유사 선례" 검색.
@@ -288,8 +287,8 @@ question(id, facility_id, topic, body, status, answer)     -- QUESTIONS를 DB로
 (나머지 근사 + 리포트에 커버리지 명시). S3.3 packing 난항 → 그리드 배치로 납품하고 packing은 로드맵 표기.
 **일정 > 완성도. 단, 품질 지표를 숨기지 않고 리포트에 드러내는 것으로 정직성 유지.**
 
-## D.2 에이전트 세션 프로토콜
-1. CLAUDE.md → PROGRESS.md → 현재 태스크 확인
+## D.2 작업 세션 프로토콜
+1. docs/GUIDELINE.md → PROGRESS.md → 현재 태스크 확인
 2. 태스크 1개 → 구현 → **Acceptance 실행 로그를 PROGRESS.md에 붙임** → 커밋 `[S2.1] ...`
 3. 15분/3회 룰: 막히면 태스크에 명시된 폴백 실행 or question 테이블 기록 후 다음 태스크
 4. DB 스키마 변경 = 마이그레이션 파일. Neo4j 적재 = 멱등. 대형 DXF = 캐시 확인 먼저

@@ -24,8 +24,9 @@ from gxpai.geometry import boundaries  # noqa: E402
 from gxpai.ingest.dxftext import iter_label_texts  # noqa: E402
 
 DXF = Path("raw/f_1ae3a266/A-201~207 평면도(증축후).dxf")
-OUT = Path(r"C:\Users\8268g\AppData\Local\Temp\claude\d--14--Dev-Project-Quorate"
-           r"\8de2464b-86f1-41a2-955d-0256d2de803c\scratchpad")
+# ★내 임시폴더 절대경로가 박혀 있었다 — **다른 기계에선 아예 안 돈다.**
+OUT = Path("artifacts")
+OUT.mkdir(parents=True, exist_ok=True)
 
 doc = ezdxf.readfile(str(DXF))
 prof = load_profile("osd_hs_2025")
