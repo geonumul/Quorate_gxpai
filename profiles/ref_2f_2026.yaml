@@ -107,7 +107,14 @@ equipment:
   layers: []          # 이 시트에는 장비가 없다
 
 hvac:
-  ahu_layers: []
+  # ★`ahu_layers: []` 라고 적혀 있었다 — **완전히 죽은 키다.**
+  #   hvac 추출기는 `ahu_layer_prefix` 와 `ahu_tag_regex` 만 읽는다.
+  #   이걸로 AHU 추출을 껐다고 믿었지만 **아무 일도 일어나지 않았다** —
+  #   추출기는 기본 접두사 'AHU' 로 그냥 돌고 있었다. 예외도 경고도 0건도 없었다.
+  #   (tests/test_profile_no_dead_keys.py 가 이제 이런 키를 잡는다)
+  #
+  #   이 시트에는 AHU 가 없다. 기본 접두사로 돌려도 0건이라 문제되지 않는다.
+  ahu_layer_prefix: "AHU"
 
 overview:
   enabled: false
