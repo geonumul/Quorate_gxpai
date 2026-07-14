@@ -40,14 +40,45 @@ def test_lbl001_new_room_marker_normalized():
     assert lbl_001.evaluate(rooms) == []
 
 
-def test_lbl001_KNOWN_LIMIT_bare_N_overnormalized():
-    """알려진 한계(회귀 고정): 정규화가 대문자 'N'을 어디서든 제거한다(_NORM=[\\s()N\\-]).
-    그래서 'N동' vs '동' 처럼 실제로 다른 이름이 같게 정규화돼 위반을 놓칠 수 있다(false negative).
-    지금은 v0.1 로직을 보존(카나리아 영향)하되, 이 위험을 시험으로 명시해 둔다.
-    → 개선안: '(N)' 접두만 제거하도록 정규식을 좁히면 오탐누락 감소(단 카나리아 재확인 필요)."""
+def test_lbl001_맨_N은_이름의_일부다():
+    """★**이 시험은 예전에 '알려진 한계'였다. 이제 해결됐다.** (2026-07-14)
+
+    옛 정규화는 `[\\s()N\\-]` 였다 — **문자열 어디에 있든 대문자 N 을 지웠다.**
+    그래서 두 방향으로 다 틀렸다:
+
+        `N동`  vs `동`            → 둘 다 `동` → 같다고 판정 → **위반을 놓친다**
+        `GRANULATION` vs `Granulation`
+                                 → `GRAULATIO` vs `Granulation` → **거짓 위반**
+                                   (소문자 n 은 안 지웠고 대소문자 폴딩도 안 했다)
+
+    옛 시험이 스스로 개선안을 적어 뒀다 —
+      *"'(N)' 접두만 제거하도록 정규식을 좁히면 오탐누락 감소(단 기준값 재확인 필요)"*
+    그대로 고쳤고, **기준값(LBL-001 3건 / LBL-002 17건)도 실도면에서 재확인**했다.
+
+    이제 **괄호로 감싼 N 만** 지운다. 맨 N 은 이름의 일부다.
+    """
+    # `N동` 과 `동` 은 **다른 이름**이다 → 위반으로 잡아야 한다
     rooms = [RoomView(room_no="3106", name="N동", pressure_name="동", plan_x=0.0)]
-    # 현재는 둘 다 '동'으로 정규화되어 위반 미검출 - 이상적이진 않으나 현 동작을 고정
+    assert len(lbl_001.evaluate(rooms)) == 1, \
+        "맨 N 을 지워버리면 서로 다른 이름을 같다고 판정한다(위반 놓침)"
+
+
+def test_lbl001_대소문자만_다르면_같은_이름이다():
+    """옛 정규화는 대소문자 폴딩을 안 해서 `GRANULATION` vs `Granulation` 을
+    **거짓 위반**으로 찍었다(게다가 N 을 지워 `GRAULATIO` 가 됐다).
+    참고도면은 방 이름이 영문 대문자, 차압도는 첫 글자만 대문자인 곳이 있다."""
+    rooms = [RoomView(room_no="3107", name="GRANULATION",
+                      pressure_name="Granulation", plan_x=0.0)]
     assert lbl_001.evaluate(rooms) == []
+
+
+def test_lbl001_신설표시는_앞뒤_어디든_지운다():
+    """`(N)` 은 신설 표시다. 도면마다 `(N)제조실` 도 있고 `제 조 실(N)` 도 있다.
+    전각 괄호(`（N）`)를 쓰는 도면도 있다."""
+    for a, b in [("(N)제조실", "제조실"), ("제 조 실(N)", "제조실"),
+                 ("（N）제조실", "제조실"), ("(n)제조실", "제조실")]:
+        rooms = [RoomView(room_no="3108", name=a, pressure_name=b, plan_x=0.0)]
+        assert lbl_001.evaluate(rooms) == [], f"{a} vs {b} 는 같은 이름이다"
 
 
 # ---------------------------------------------------------------- LBL-002
