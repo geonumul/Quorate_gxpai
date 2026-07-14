@@ -8,7 +8,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 import ezdxf
 from gxpai.core.config import raw_dir
 
-DXF = Path(r"D:\14. Dev Project\Quorate\참고도면_원본_CAD\dxf\참고도면(2).dxf")
+DXF = Path(r"D:\14. Dev Project\Quorate\02_참고도면\dxf\참고도면(2).dxf")
 doc = ezdxf.readfile(str(DXF))
 msp = doc.modelspace()
 
@@ -22,7 +22,7 @@ for i, e in enumerate(sheets, 1):
 # 각 시트 폭(간격)으로 구간을 나눠, 시트별로 모델스페이스 엔티티의 레이어를 센다
 xs = [e.dxf.insert.x for e in sheets]
 W = (xs[1] - xs[0]) if len(xs) > 1 else 100000
-print(f"\n시트 간격 {W:.0f}mm — 시트별 레이어 분포 (모델스페이스 최상위)")
+print(f"\n시트 간격 {W:.0f}mm - 시트별 레이어 분포 (모델스페이스 최상위)")
 for i, x0 in enumerate(xs, 1):
     lo, hi = x0 - W * 0.15, x0 + W * 0.85
     c = Counter()

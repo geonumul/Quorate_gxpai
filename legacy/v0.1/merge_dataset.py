@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-merge_dataset.py — rooms.json + pressure.json → 마스터 방 스키마
+merge_dataset.py - rooms.json + pressure.json → 마스터 방 스키마
 
 방번호를 키로 평면도/차압도 정보를 병합.
 차압 화살표는 각 층 시트 내에서 최근접 방에 귀속(참고용 raw 좌표 유지).

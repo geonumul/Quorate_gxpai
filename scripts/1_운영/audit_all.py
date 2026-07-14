@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""전수 의심 감사 — "그럴듯한 숫자"가 실제로 맞는지 캔다."""
+"""전수 의심 감사 - "그럴듯한 숫자"가 실제로 맞는지 캔다."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))

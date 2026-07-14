@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""방 경계 폴리곤 — 벽 기반 flood-fill. **구현 (2026-07-13).**
+"""방 경계 폴리곤 - 벽 기반 flood-fill. **구현 (2026-07-13).**
 
 무엇을 하나
   벽 선분을 격자에 태운 뒤(rasterize), 방 라벨 좌표에서 **번져나가기(flood-fill)** 하여
@@ -55,7 +55,7 @@ class BoundaryResult:
     rooms: list[RoomRegion] = field(default_factory=list)
     # 벽을 맞댄 방 쌍 (구획, 차압 검사용)
     adjacency: list[tuple[str, str]] = field(default_factory=list)
-    # **문으로 이어진** 방 쌍 (동선 검사용 — ADJ-001 이 써야 하는 것).
+    # **문으로 이어진** 방 쌍 (동선 검사용 - ADJ-001 이 써야 하는 것).
     #   조문은 "작업원 **동선**", "**연결된** 구역"을 말한다. 벽만 맞대고 문이 없으면
     #   사람이 오갈 수 없으니 동선 위반이 아니다. 문 데이터가 없는 도면에서는 비어 있다.
     door_adjacency: list[tuple[str, str]] = field(default_factory=list)
@@ -67,7 +67,7 @@ class BoundaryResult:
     cell_mm: float = 50.0
     failed: list[str] = field(default_factory=list)
     # 장벽으로 태우지 **못한** 기하 타입과 개수(벽/문 레이어 위에서).
-    #   예전엔 이걸 안 세서 **조용히 사라졌다** — 기준 평면도에서 ELLIPSE 32, POLYLINE 22.
+    #   예전엔 이걸 안 세서 **조용히 사라졌다** - 기준 평면도에서 ELLIPSE 32, POLYLINE 22.
     #   벽을 구형 POLYLINE 으로 그리는 사무소가 오면 벽이 통째로 뭉개지는데
     #   로그 한 줄 안 남는다. 이 카운터가 유일한 단서다.
     unsupported_types: dict[str, int] = field(default_factory=dict)
@@ -101,7 +101,7 @@ FLATTEN_MM = 20.0
 # 우리가 **장벽으로 태울 수 있는** 기하 타입 전부.
 _GEOM_TYPES = ("LINE", "LWPOLYLINE", "ARC", "POLYLINE", "CIRCLE", "SPLINE", "ELLIPSE")
 
-# 기본 장벽 타입 — **실측으로 정했다. 짐작이 아니다.**
+# 기본 장벽 타입 - **실측으로 정했다. 짐작이 아니다.**
 #
 #   기준 평면도(f_1ae3a266, 방 라벨 111개)로 타입을 켜 가며 **방 경계 성공 수를 쟀다**:
 #
@@ -119,7 +119,7 @@ _GEOM_TYPES = ("LINE", "LWPOLYLINE", "ARC", "POLYLINE", "CIRCLE", "SPLINE", "ELL
 #
 #   [주의]다른 사무소는 다를 수 있다. 프로파일 `boundaries.barrier_types` 로 덮어써라.
 #     그리고 **켠 뒤 방 개수로 반드시 확인해라. 짐작으로 정하지 마라.**
-#     못 태운 타입은 `BoundaryResult.unsupported_types` 에 세어 둔다 — 그게 유일한 단서다.
+#     못 태운 타입은 `BoundaryResult.unsupported_types` 에 세어 둔다 - 그게 유일한 단서다.
 BARRIER_TYPES_DEFAULT = ("LINE", "LWPOLYLINE", "ARC", "POLYLINE")
 
 
@@ -132,7 +132,7 @@ def _iter_wall_segments(doc, layers: list[str], max_depth: int = 5,
     **블록(INSERT) 안까지 재귀로 들어간다.**
 
     안 들어갔더니 기준 시설 3층이 37방 중 32방이 **하나의 41,227㎡ 덩어리**로 뭉쳤다.
-    벽이 없어서가 아니라 **벽을 못 본 것**이었다 — 벽 선분이 블록 정의 안에 들어 있었다.
+    벽이 없어서가 아니라 **벽을 못 본 것**이었다 - 벽 선분이 블록 정의 안에 들어 있었다.
     (텍스트 쪽은 이미 재귀로 고쳤는데(dxftext) 벽은 안 고쳐 둔 채였다. 같은 함정을 두 번 밟았다.)
 
     레이어는 **실효 레이어**로 본다: 블록 안에서 레이어가 '0' 이면 INSERT 의 레이어를 상속한다.
@@ -207,12 +207,12 @@ def _iter_wall_segments(doc, layers: list[str], max_depth: int = 5,
         #   실제로 재 보니 **벽/문 레이어 위**에서 버려지던 건 이만큼이다:
         #       ELLIPSE 32, POLYLINE 22   (기준 평면도, 총 54개)
         #
-        #   작지만 **진짜 손실**이다. 그리고 이 도면이 마침 그럴 뿐이다 —
+        #   작지만 **진짜 손실**이다. 그리고 이 도면이 마침 그럴 뿐이다 -
         #   벽을 구형 POLYLINE 으로 그리는 사무소가 오면 **벽이 통째로 사라진다.**
         #   (POLYLINE 은 LWPOLYLINE 이전 표기다. 오래된 CAD 가 만든 블록은 아직도 쓴다)
         #
         # [주의]그렇다고 다 켜면 안 된다. `wall_layers: ["*"]`(참고도면) 이면
-        #   **전 레이어가 장벽이 된다** — 원, 스플라인은 벽이 아니라 가구, 기호다.
+        #   **전 레이어가 장벽이 된다** - 원, 스플라인은 벽이 아니라 가구, 기호다.
         #   → `barrier_types` 로 타입별로 켜고 끈다. 기본값은 실측으로 정했다.
         elif t == "POLYLINE":
             try:
@@ -228,7 +228,7 @@ def _iter_wall_segments(doc, layers: list[str], max_depth: int = 5,
             try:
                 pts = [tp(p.x, p.y) for p in e.flattening(FLATTEN_MM)]
             except (AttributeError, ValueError, ZeroDivisionError):
-                return                       # 퇴화 도형(반지름 0 등) — 벽이 아니다
+                return                       # 퇴화 도형(반지름 0 등) - 벽이 아니다
             for i in range(len(pts) - 1):
                 yield (pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1])
 
@@ -285,7 +285,7 @@ def _contour(mask: np.ndarray, minx: float, miny: float, cell: float,
              max_pts: int = 200) -> list[tuple[float, float]]:
     """영역의 외곽을 성기게 뽑는다(리포트 표시, 눈 검증용).
 
-    정밀 폴리곤이 목표가 아니다 — 규칙이 쓰는 건 **면적과 인접**이다.
+    정밀 폴리곤이 목표가 아니다 - 규칙이 쓰는 건 **면적과 인접**이다.
     외곽 픽셀을 무게중심 기준 각도순으로 정렬해 단순 다각형을 만든다.
     (오목한 방은 형태가 다소 뭉개진다. 면적은 마스크에서 직접 세므로 영향 없다.)
     """
@@ -406,7 +406,7 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
     # (기준 시설에서 96방 중 45방만 잡혔다. 3F 는 38 중 9).
     #
     # 문 블록의 **호(문이 열리는 궤적)** 에서 경첩과 '닫힌 위치'를 구해 선을 긋는다.
-    # 어느 끝이 닫힌 위치인지는 **방금 만든 벽 격자에게 물어본다** — 닫힌 문의 끝은
+    # 어느 끝이 닫힌 위치인지는 **방금 만든 벽 격자에게 물어본다** - 닫힌 문의 끝은
     # 반대쪽 문설주(벽)에 닿고, 열린 문의 끝은 방 한가운데 떠 있다.
     # 각도로 추측하지 않는다(회전, 거울반사에 또 당한다. 차압 화살표에서 겪었다).
     door_segs: list[tuple[float, float, float, float]] = []
@@ -426,7 +426,7 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
     cell_m2 = (cell / 1000.0) ** 2
 
     # 버려진 기하 타입을 **성공 경로에도** 실어 보낸다.
-    #   처음엔 실패 경로(벽 0개)에만 배선해서, 정상 실행에선 계속 0 으로 보였다 —
+    #   처음엔 실패 경로(벽 0개)에만 배선해서, 정상 실행에선 계속 0 으로 보였다 -
     #   벽 레이어 위에 실제로 54개(ELLIPSE 32, POLYLINE 22)가 버려지고 있는데도.
     #   **경고를 만들어 놓고 정작 그 경고가 안 뜨는 경로에 뒀다.** 측정하다 잡았다.
     res = BoundaryResult(cell_mm=cell, unsupported_types=unsupported)
@@ -481,12 +481,12 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
 
     # ── 인접: 각 방 영역을 **벽 두께만큼** 팽창시켜 다른 방과 닿는지 본다 ──
     # `close_gap` 과 **분리된 파라미터**여야 한다.
-    #   틈 메우기(close_gap)는 작아야 좋다 — 크면 **작은 방(전실 2~4㎡)을 통째로 삼킨다**
+    #   틈 메우기(close_gap)는 작아야 좋다 - 크면 **작은 방(전실 2~4㎡)을 통째로 삼킨다**
     #   (900mm 로 뒀더니 무균 전실, 갱의실 6개가 벽에 먹혀 사라졌다).
     #   반면 인접 판정은 **벽 두께를 건너뛸 만큼** 커야 한다. 두 요구가 정반대다.
     #   같은 값에 묶어 뒀더니 close_gap=200 에서 방 51개를 다 찾고도 인접이 9쌍뿐이었다.
     # `adj_gap_mm` = **건너뛸 벽 두께(반경)**. 구조요소 크기가 아니다.
-    #   (처음엔 크기로 썼다가 실제 반경이 절반이라 헷갈렸다 — 시험이 잡았다.)
+    #   (처음엔 크기로 썼다가 실제 반경이 절반이라 헷갈렸다 - 시험이 잡았다.)
     adj_gap = float(cfg.get("adj_gap_mm", max(close_gap, 300.0)))
     r = max(1, int(round(adj_gap / cell)))
     st = np.ones((2 * r + 1, 2 * r + 1), dtype=bool)
@@ -521,7 +521,7 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
                 continue
             nx, ny = -dy / L, dx / L                 # 문틀에 **수직**인 방향
             mx, my = (x0 + x1) / 2, (y0 + y1) / 2    # 문 한가운데
-            # 한 점만 찍으면 안 된다 — 그 점이 벽 두께 안이거나 가구 위면 방을 못 읽는다.
+            # 한 점만 찍으면 안 된다 - 그 점이 벽 두께 안이거나 가구 위면 방을 못 읽는다.
             #   실제로 참고도면에서 호 85개 중 **4쌍**만 건졌다(검출률 14%).
             #   → 수직 방향으로 **여러 거리를 훑어** 처음 만나는 방을 쓴다.
             side: list[str] = []

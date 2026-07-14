@@ -20,7 +20,7 @@ with connect() as c, c.cursor() as cur:
     cur.execute("SELECT plan_x, plan_y FROM room WHERE run_id=%s AND plan_x IS NOT NULL", (rid,))
     pts = cur.fetchall()
 
-# 벽 레이어(Wall50) 범위로 화면을 잡는다 — 이게 진짜 건물이다
+# 벽 레이어(Wall50) 범위로 화면을 잡는다 - 이게 진짜 건물이다
 segs = list(B._iter_wall_segments(doc, [W50]))
 xs = [s[0] for s in segs]+[s[2] for s in segs]; ys = [s[1] for s in segs]+[s[3] for s in segs]
 X0, X1 = min(xs)-2000, max(xs)+2000

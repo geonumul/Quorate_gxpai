@@ -23,7 +23,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 from gxpai.geometry import boundaries  # noqa: E402
 
-DXF = Path(r"D:\14. Dev Project\Quorate\참고도면_원본_CAD\dxf\참고도면(2).dxf")
+DXF = Path(r"D:\14. Dev Project\Quorate\02_참고도면\dxf\참고도면(2).dxf")
 GRADE = re.compile(r"^\((A|B|C|D|CNC|NC)\)$")
 ROOMNO = re.compile(r"^(F\d[A-Z]\d{2}|\d{4})$")
 
@@ -57,7 +57,7 @@ print(f"방번호 라벨 {len(nums)}개")
 # 블록이 3단 중첩이다: 2층평면도(260320) → zw$F5F8 → 2층 평면 변경후(벽 97k)
 #   그리고 **안쪽 엔티티가 전부 레이어 '0'** 이다(블록이 INSERT 의 레이어를 상속).
 #   → 레이어로 벽만 고를 수 없다. 일단 선/호를 전부 장벽으로 태우고 결과를 눈으로 본다.
-#     (가구, 치수선까지 장벽이 되면 방이 잘게 쪼개질 수 있다 — 그때 걸러낸다.)
+#     (가구, 치수선까지 장벽이 되면 방이 잘게 쪼개질 수 있다 - 그때 걸러낸다.)
 tmp = ezdxf.new()
 tsp = tmp.modelspace()
 n_seg = 0
@@ -75,7 +75,7 @@ def bake(entity, mat: Matrix44) -> None:
     t = entity.dxftype()
     if t == "INSERT":
         if entity.dxf.name in SKIP_BLOCKS:
-            return                       # 방 라벨 박스 — 벽이 아니다
+            return                       # 방 라벨 박스 - 벽이 아니다
         inner = doc.blocks.get(entity.dxf.name)
         if inner is None:
             return
@@ -181,7 +181,7 @@ for n in nums:
 
 ax.set_aspect("equal")
 ax.axis("off")
-# 내 임시폴더 절대경로가 박혀 있었다 — 다른 기계에선 안 돈다.
+# 내 임시폴더 절대경로가 박혀 있었다 - 다른 기계에선 안 돈다.
 p = Path("artifacts") / "boundaries_check.png"
 p.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(p, bbox_inches="tight", facecolor="white")

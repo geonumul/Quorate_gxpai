@@ -23,7 +23,7 @@ from ezdxf.math import Matrix44
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-SRC = Path(r"D:\14. Dev Project\Quorate\참고도면_원본_CAD\dxf\참고도면(2).dxf")
+SRC = Path(r"D:\14. Dev Project\Quorate\02_참고도면\dxf\참고도면(2).dxf")
 PLAN_BLOCK = "2층평면도(260320)"
 SHEET_W = 100_000.0
 BASE = 2                                  # 기준 시트 = 차압흐름도(우리 방 좌표의 기준)

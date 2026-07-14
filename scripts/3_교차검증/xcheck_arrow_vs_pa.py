@@ -42,7 +42,7 @@ for hno, hname, hpa, lno, lname, lpa, rot, ex, ey in rows:
 
 print(f"{fac} 화살표 {len(rows)}개 (방 귀속 확정)")
 print(f"  일치   {agree:3d}  (꼬리쪽 Pa > 화살촉쪽 Pa)")
-print(f"  동압   {equal:3d}  (양쪽 Pa 같음 — 판단 불가)")
+print(f"  동압   {equal:3d}  (양쪽 Pa 같음 - 판단 불가)")
 print(f"  압력없음 {unknown:3d}")
 print(f"  모순  {contra:3d}\n")
 for hno, hname, hpa, lno, lname, lpa, rot, ex, ey in bad:

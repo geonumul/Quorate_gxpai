@@ -146,7 +146,7 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
 
     # 배너를 **사실에 맞게** 유지한다. 예전 배너는 "XREF 미수령, Grade 미확보, 화살표 미확정"
     #   이라고 적혀 있었는데 셋 다 해결된 뒤에도 그대로였다. **리포트가 거짓말을 하고 있었다.**
-    #   (내 문서 안의 틀린 주장을 방치하지 않는다 — 이번 밤에만 세 번째다)
+    #   (내 문서 안의 틀린 주장을 방치하지 않는다 - 이번 밤에만 세 번째다)
     n_graded = metrics.get("청정등급") or 0
     if not n_graded:
         gate_why = ("이 도면에는 <b>청정등급 표기가 없습니다</b>(0건). "
@@ -155,11 +155,11 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
     else:
         gate_why = ("추출은 됐습니다(방 경계, 문 동선, 등급, 절대압력, 차압계, 인터락). "
                     "게이트가 잠긴 이유는 데이터가 아니라 <b>컨설턴트 미검수</b>입니다.")
-    out.append('<div class="banner"><b>게이트 잠김 — 압력(PRES), 인접(ADJ) 규칙은 '
+    out.append('<div class="banner"><b>게이트 잠김 - 압력(PRES), 인접(ADJ) 규칙은 '
                '아직 실행하지 않습니다.</b><br>' + gate_why +
                '<br>검수 전에는 위반 이력을 DB에 쓰지 않습니다. '
                '무엇이 잡히는지는 <code>scripts/1_운영/preview_rules.py</code> 로만 봅니다(dry-run).'
-               '<br>모든 추정은 <b>보류, 발주처 확인 필요</b>입니다 — '
+               '<br>모든 추정은 <b>보류, 발주처 확인 필요</b>입니다 - '
                '<code>docs/20_발주처_확인요청서.md</code></div>')
 
     out.append("<h2>품질 지표</h2><div class='metrics'>")
@@ -209,14 +209,14 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
     #   "깨끗한 방이 고압"은 **보호형에만** 맞는 말이고, 분진 발생실은 **정반대**다.
     #   그래서 리포트에 드러내 놓고 **눈으로 검수받게** 한다.
     REGIME_KO = {
-        "protect": ("보호", "실이 고압 — 밖의 오염이 못 들어오게"),
-        "contain": ("봉쇄", "실이 <b>저압</b> — 분진이 복도로 못 나가게"),
-        "hazard": ("특수", "실이 <b>음압</b> — 페니실린, 세포독성"),
+        "protect": ("보호", "실이 고압 - 밖의 오염이 못 들어오게"),
+        "contain": ("봉쇄", "실이 <b>저압</b> - 분진이 복도로 못 나가게"),
+        "hazard": ("특수", "실이 <b>음압</b> - 페니실린, 세포독성"),
         "neutral": ("중립", "압력 관리 대상 아님(복도, 보관소, 기계실)"),
     }
     typed = [r for r in rooms if r.get("regime")]
     if typed:
-        out.append("<h2>압력 유형 (압력 규칙의 전제 — 검수 필요)</h2>")
+        out.append("<h2>압력 유형 (압력 규칙의 전제 - 검수 필요)</h2>")
         out.append("<p style='color:#9aa4b2;font-size:12px'>"
                    "‘깨끗한 방이 고압’은 <b>보호형에만</b> 맞는 말입니다. "
                    "분진이 나는 방(타정, 과립, 칭량)은 <b>정반대로 저압</b>이어야 합니다"
@@ -230,7 +230,7 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
         out.append("<div class='metrics'>")
         for k, n in sorted(cnt.items(), key=lambda kv: -kv[1]):
             ko, why = REGIME_KO.get(k, (k, ""))
-            out.append(f"<div class='m'><b>{n}</b><span>{esc(ko)} — {why}</span></div>")
+            out.append(f"<div class='m'><b>{n}</b><span>{esc(ko)} - {why}</span></div>")
         out.append("</div>")
 
         out.append("<table><tr><th>방</th><th>이름</th><th>압력유형</th><th>출처</th>"
@@ -238,13 +238,13 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
         for r in sorted(typed, key=lambda r: (r["floor"] or "", r["room_no"] or "")):
             ko, _ = REGIME_KO.get(r["regime"], (r["regime"], ""))
             src = r.get("regime_source") or ""
-            area = f"{r['area_m2']:.1f}㎡" if r.get("area_m2") else "—"
-            pa = f"{r['pressure_pa']:g}Pa" if r.get("pressure_pa") is not None else "—"
+            area = f"{r['area_m2']:.1f}㎡" if r.get("area_m2") else "-"
+            pa = f"{r['pressure_pa']:g}Pa" if r.get("pressure_pa") is not None else "-"
             # 번호 없는 공간(무번호 43개)도 압력 유형을 갖는다 → esc(None) 방어
             out.append(
-                f"<tr><td>{esc(r['room_no'] or '—')}</td><td>{esc(r['name'] or '')}</td>"
+                f"<tr><td>{esc(r['room_no'] or '-')}</td><td>{esc(r['name'] or '')}</td>"
                 f"<td>{esc(ko)}</td><td><code>{esc(src)}</code></td>"
-                f"<td>{esc(r.get('grade') or '—')}</td><td>{pa}</td><td>{area}</td></tr>")
+                f"<td>{esc(r.get('grade') or '-')}</td><td>{pa}</td><td>{area}</td></tr>")
         out.append("</table>")
 
     out.append("<h2>층별 배치 (방 위치, 위반 마커)</h2>")

@@ -48,7 +48,7 @@ with connect() as c, c.cursor() as cur:
     print("   방 좌표 범위 x {:.0f}~{:.0f}  y {:.0f}~{:.0f}".format(*cur.fetchone()))
 
 R = 3000.0
-print(f"\n차압 설정 구간 {len(rels)}개 — 반경 {R:.0f}mm 안에 차압계가 있는가")
+print(f"\n차압 설정 구간 {len(rels)}개 - 반경 {R:.0f}mm 안에 차압계가 있는가")
 miss = []
 for hi, lo, ex, ey, sp, lay in rels:
     near = [gg for gg in gauges if math.hypot(gg[0]-ex, gg[1]-ey) <= R]

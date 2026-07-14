@@ -16,7 +16,7 @@ from gxpai.core.config import raw_dir
 from gxpai.core.db import connect
 
 doc = ezdxf.readfile(str(raw_dir()/"f_c783b865"/"인터락도.dxf"))
-# 인터락은 **2점 선**이다 — 에어락의 두 문을 잇는 연결선("이 둘은 동시에 열리면 안 된다").
+# 인터락은 **2점 선**이다 - 에어락의 두 문을 잇는 연결선("이 둘은 동시에 열리면 안 된다").
 #   선의 **중점**이 곧 그 에어락 방이다.
 locks = []
 for e in doc.modelspace():
@@ -58,7 +58,7 @@ for no, n in sorted(lock_of.items(), key=lambda kv: kv[0] or ""):
     r = by[no]
     print(f"   {no} {r[1]:22} 등급={r[2] or '-':4} × {n}")
 
-print("\n에어락/전실 중 **A, B 등급 방과 문으로 이어진** 것 — 인터락 필수")
+print("\n에어락/전실 중 **A, B 등급 방과 문으로 이어진** 것 - 인터락 필수")
 RANK = {"A":5,"B":4,"C":3,"D":2,"CNC":1,"NC":0}
 for no, r in sorted(by.items(), key=lambda kv: kv[0] or ""):
     if not any(w in (r[1] or "") for w in AIRLOCK):

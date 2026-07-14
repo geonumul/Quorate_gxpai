@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""사무소 온보딩 — DXF 를 훑어 **프로파일 초안**을 낸다.
+"""사무소 온보딩 - DXF 를 훑어 **프로파일 초안**을 낸다.
 
     python scripts/1_운영/onboard.py "경로/도면.dxf"
 
 초안은 초안이다. 반드시 사람이 확인해야 한다.
-  자동 추정은 틀린다 — 우리는 벽 레이어를 이름으로 짐작했다가 96개 방이
+  자동 추정은 틀린다 - 우리는 벽 레이어를 이름으로 짐작했다가 96개 방이
   하나의 40,710㎡ 덩어리가 된 적이 있다.
 """
 import sys
@@ -26,13 +26,13 @@ print(f"   {a['_요약']}\n")
 def show(title, items, fmt):
     print(f"{title}")
     if not items:
-        print("     (못 찾음 — 이 도면에 없거나, 우리가 못 보는 것이다)")
+        print("     (못 찾음 - 이 도면에 없거나, 우리가 못 보는 것이다)")
     for it in items:
         print("     " + fmt(it))
     print()
 
 n = a["방번호"]
-print(f"방번호 — **후보를 전부 보여준다. 골라야 하는 건 사람이다.**")
+print(f"방번호 - **후보를 전부 보여준다. 골라야 하는 건 사람이다.**")
 alts = n.get("후보") or []
 for i, alt in enumerate(alts):
     mark = "추천" if alt["pattern"] == n["pattern"] else "     "
@@ -47,7 +47,7 @@ print()
 show("방이름", a["방이름"]["layers"], lambda t: f"레이어 {t[0]!r}: {t[1]}")
 show("청정등급", a["청정등급"]["layers"], lambda t: f"레이어 {t[0]!r}: {t[1]}")
 show("절대압력(Pa)", a["절대압력"]["layers"], lambda t: f"레이어 {t[0]!r}: {t[1]}")
-show("벽 (기하로 채점 — 이름으로 짐작하지 않는다)", a["벽"],
+show("벽 (기하로 채점 - 이름으로 짐작하지 않는다)", a["벽"],
      lambda t: f"{t[1]:>9,.0f}점  {t[0]!r:30} {t[2]}")
 show("문 (문 스윙 호로 찾는다)", a["문"], lambda t: f"{t[1]:>6.0f}점  {t[0]!r:24} {t[2]}")
 show("차압 화살표 (블록 외곽선의 뾰족한 끝을 실측)", a["차압화살표"],
@@ -64,10 +64,10 @@ if "--yaml" in sys.argv:
     n = a["방번호"]
     y = io.StringIO()
     w = y.write
-    w("# 자동 초안 — **반드시 사람이 확인할 것.**\n")
+    w("# 자동 초안 - **반드시 사람이 확인할 것.**\n")
     w(f"#   출처: {p.name}\n")
     w("#   개수만 세면 속는다. ingest 후 **방 개수와 면적이 상식적인지** 눈으로 볼 것.\n")
-    w("#   빈 칸([] 또는 '')은 **우리가 못 찾은 것**이다 — 도면에 없거나, 다른 시트에 있다.\n\n")
+    w("#   빈 칸([] 또는 '')은 **우리가 못 찾은 것**이다 - 도면에 없거나, 다른 시트에 있다.\n\n")
     w(f"profile_id: {p.stem.replace(' ', '_')}\nprofile_version: '1'\n")
     w(f"description: '{p.name} 자동 초안 (검수 전)'\n\n")
     w("floors: {'3': 3F, '4': 4F}   # ← 실제 층에 맞게 고칠 것\n")
@@ -160,7 +160,7 @@ if "--try" in sys.argv:
     if hinted and struct:
         cands.append((sorted(set(hinted + struct)), "벽 힌트 + 기둥, 계단, 창호"))
     # 최후의 수단: 레이어를 안 가리고 전부 태운다
-    cands.append((["*"], "전부 태우기 (최후의 수단 — 가구, 치수선까지 벽이 된다)"))
+    cands.append((["*"], "전부 태우기 (최후의 수단 - 가구, 치수선까지 벽이 된다)"))
     print(f"\n  {'벽 레이어':<38} {'방':>9} {'면적중앙값':>10}  판정")
     best = None
     for lays, label in cands:

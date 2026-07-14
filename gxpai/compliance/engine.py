@@ -45,7 +45,7 @@ def validate(facility_id: str, ruleset: str = "gmp_osd_v1", run_id: str | None =
        → 엔진이 직접 막는다.
 
     ② **제형 게이트** (`applies_to`)
-       가장 심각했던 결함. 법규 코퍼스를 검색해 확인했다 —
+       가장 심각했던 결함. 법규 코퍼스를 검색해 확인했다 -
        **별표17(완제)에 '청정등급', '차압계', '인터락' 조문이 0건**인데,
        우리 규칙 5종이 **별표1(무균)** 조문으로 **완제 시설(내용고형제)** 을 판정하고 있었다.
        ADJ-002 의 조문은 아예 "**무균의약품 제조는**…" 으로 시작한다.
@@ -98,12 +98,12 @@ def validate(facility_id: str, ruleset: str = "gmp_osd_v1", run_id: str | None =
 
             cfg = rule.get("config") or {}
 
-            # ① 동결 게이트 — 컨설턴트 미검수 규칙은 **엔진이 막는다**
+            # ① 동결 게이트 - 컨설턴트 미검수 규칙은 **엔진이 막는다**
             if rule.get("review") == "unreviewed" and not cfg.get("enabled"):
                 summary["gated"].append(rid_name)
                 continue
 
-            # ② 제형 게이트 — 무균 조문으로 완제 시설을 판정하지 않는다
+            # ② 제형 게이트 - 무균 조문으로 완제 시설을 판정하지 않는다
             if not applies(cfg, fscope):
                 summary["not_applicable"].append(
                     f"{rid_name}: {why_not(cfg, fscope, ptype)}")

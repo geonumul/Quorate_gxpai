@@ -20,7 +20,7 @@ def load_pairs(run_id: str, pairs: list[tuple[str, str]], method: str = "polygon
     """방번호 쌍 목록을 room_adjacency 에 적재한다(정밀 인접).
 
     boundaries.build() 가 돌려준 (room_no, room_no) 쌍을 방 id 로 바꿔 넣는다.
-    기존 근사 간선은 지운다 — 두 방법이 섞이면 어느 것을 믿을지 알 수 없다.
+    기존 근사 간선은 지운다 - 두 방법이 섞이면 어느 것을 믿을지 알 수 없다.
 
     door_pairs: **문으로 이어진** 쌍(동선). via_door 로 표시한다.
       None 이면 문 데이터가 없는 도면 → via_door 를 NULL 로 둔다(판정 불가).

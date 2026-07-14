@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""절대압력(Pa) 추출기 — **신규 (2026-07-13).**
+"""절대압력(Pa) 추출기 - **신규 (2026-07-13).**
 
 무엇을 뽑나
   방마다 도면에 표기된 **절대 정압**(`25Pa`, `0Pa` …). 새 참고도면 DXF 의 레이어 `차압` 에
@@ -34,9 +34,9 @@ import re
 from ..dxftext import iter_label_texts
 from .base import BaseExtractor, Record
 
-# "25Pa", "0 Pa", "-5pa" — 반드시 Pa 접미가 있어야 한다(TA 풍량과 구분)
+# "25Pa", "0 Pa", "-5pa" - 반드시 Pa 접미가 있어야 한다(TA 풍량과 구분)
 # 절대압력 표기. 사무소마다 다르다 → 프로파일 `pressure_value.pa_regex` 로 덮어쓸 수 있다.
-# `+15Pa`(명시적 +) 도 받는다 — 예전엔 `-` 만 받아서 양수 부호가 붙으면 **조용히 놓쳤다.**
+# `+15Pa`(명시적 +) 도 받는다 - 예전엔 `-` 만 받아서 양수 부호가 붙으면 **조용히 놓쳤다.**
 PA_RE = re.compile(r"^([+-]?\d+(?:\.\d+)?)\s*(?:Pa|㎩)$", re.I)
 
 DEFAULT_MAX_D = 5000.0        # mm
@@ -125,6 +125,6 @@ class PressureValueExtractor(BaseExtractor):
             # 조용히 버리지 않는다. 등급 표기가 없는 방(기존 구역)의 압력일 수 있다.
             out.append(Record(kind="pressure_unmatched", payload={
                 "count": unmatched,
-                "note": "방번호에 못 붙인 압력 라벨. 등급/번호 없는 구역의 값일 수 있음 — 확인 필요",
+                "note": "방번호에 못 붙인 압력 라벨. 등급/번호 없는 구역의 값일 수 있음 - 확인 필요",
             }))
         return out

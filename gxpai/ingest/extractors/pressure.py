@@ -22,7 +22,7 @@ class PressureExtractor(BaseExtractor):
         pr = profile["pressure"]
         floors = profile["floors"]
         entity_types = profile.get("label_entity_types", ["TEXT", "MTEXT"])
-        # 방번호 정규식을 **하드코딩하고 있었다** — `^\(?(\d{4}(?:-\d+)?)\)?$`.
+        # 방번호 정규식을 **하드코딩하고 있었다** - `^\(?(\d{4}(?:-\d+)?)\)?$`.
         #   평면도 추출기는 프로파일(`floorplan.room_no_regex`)에서 읽는데 여기만 박아뒀다.
         #
         #   그 바람에 참고도면(방번호가 `F2I01` 꼴)의 **차압도 방이 0개**가 됐고,
@@ -136,7 +136,7 @@ class PressureExtractor(BaseExtractor):
             records.append(Record(kind="pressure_arrow", payload={
                 "x": round(x, 1), "y": round(y, 1),
                 "rotation_deg": round(e.dxf.rotation, 1),
-                # None 이면 화살촉을 못 읽은 것 — 추측해 채우지 않는다. 규칙이 건너뛴다.
+                # None 이면 화살촉을 못 읽은 것 - 추측해 채우지 않는다. 규칙이 건너뛴다.
                 "head_deg": round(hd, 1) if hd is not None else None,
                 "layer": lay,
                 "setpoint_pa": _setpoint_from_layer(lay),

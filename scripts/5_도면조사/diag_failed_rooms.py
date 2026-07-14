@@ -25,7 +25,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 from gxpai.geometry.boundaries import _draw_line, _iter_wall_segments  # noqa: E402
 
-DXF = Path(r"D:\14. Dev Project\Quorate\참고도면_원본_CAD\dxf\참고도면(2).dxf")
+DXF = Path(r"D:\14. Dev Project\Quorate\02_참고도면\dxf\참고도면(2).dxf")
 ROOMNO = re.compile(r"^(F\d[A-Z]\d{2}|\d{4})$")
 SKIP_BLOCKS = {"B20260107094054"}
 FAILED = {"F2I04", "F2I19", "F2I25", "F2I13", "F2P16", "F2I21", "F2I20",

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-extract_rooms.py — 평면도 DXF에서 방(room) 목록을 구조화 JSON으로 추출
+extract_rooms.py - 평면도 DXF에서 방(room) 목록을 구조화 JSON으로 추출
 
 원리:
   평면도 DXF의 TEX/TMP_TXT/11 레이어에 방이름 TEXT와 방번호 "(####)" TEXT가

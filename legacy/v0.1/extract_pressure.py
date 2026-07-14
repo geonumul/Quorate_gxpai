@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-extract_pressure.py — PRESSURIZATION PLAN DXF에서 차압 정보 구조화
+extract_pressure.py - PRESSURIZATION PLAN DXF에서 차압 정보 구조화
 
 추출 대상:
   1. RM 레이어: 방번호 + 방이름 TEXT 쌍 (라벨박스 LWPOLYLINE 내부)
-  2. TA 레이어: 수치 TEXT (급기량/차압 후보값 — 단위 발주처 확인 필요)
+  2. TA 레이어: 수치 TEXT (급기량/차압 후보값 - 단위 발주처 확인 필요)
   3. 차압 화살표 심볼 INSERT (블록명 A$*, rotation → 압력 방향)
   4. 기준압 표기 ("50 Pa" 등)
 

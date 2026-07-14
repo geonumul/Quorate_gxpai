@@ -59,7 +59,7 @@ def _same_source_warning(drawings: list[dict]) -> str | None:
             by_kind[d["kind"]] = d["sha256"]
     if len(by_kind) == 2 and len(set(by_kind.values())) == 1:
         return ("평면도와 차압도가 **같은 파일**입니다(sha256 일치). "
-                "LBL-001/002 는 두 도면을 대조하는 검사라 **판정 불가**입니다 — "
+                "LBL-001/002 는 두 도면을 대조하는 검사라 **판정 불가**입니다 - "
                 "0건이 나와도 '대조했더니 깨끗하다'는 뜻이 아닙니다.")
     return None
 
@@ -96,7 +96,7 @@ def check_units(doc, path) -> str | None:
         화살표 탐색 반경 `MAX_DIST=6000`, 이름 매칭 `name_match_dist_mm`
 
     **미터 단위 도면(INSUNITS=6)이 오면 전부 1000배 어긋난다.**
-    그런데 예외도 안 나고 0건도 아니다 — **그럴듯하게 틀린 숫자**가 나온다:
+    그런데 예외도 안 나고 0건도 아니다 - **그럴듯하게 틀린 숫자**가 나온다:
 
         - 벽 선분이 전부 격자 한 칸(50mm) 안에 들어가 방이 **하나로 뭉친다**
         - 면적 상한을 넘겨 방이 전부 **버려진다** (경계 0건)
@@ -105,7 +105,7 @@ def check_units(doc, path) -> str | None:
     조용히 틀리는 게 제일 나쁘다. 우리가 가진 도면 3장은 전부 INSUNITS=4(mm) 라
     **지금까지 운이 좋았을 뿐이다.** 다른 사무소 도면이 오면 터진다.
 
-    [주의]INSUNITS=0 은 '단위 없음'이다 — 드물지 않다. 그땐 **막지 말고 알린다**
+    [주의]INSUNITS=0 은 '단위 없음'이다 - 드물지 않다. 그땐 **막지 말고 알린다**
       (실제 좌표 크기로 상식성을 따로 볼 수 있다).
     """
     try:
@@ -113,11 +113,11 @@ def check_units(doc, path) -> str | None:
     except (TypeError, ValueError):
         code = 0
     if code == 4:
-        return None                                  # 밀리미터 — 정상
+        return None                                  # 밀리미터 - 정상
     name = _INSUNITS.get(code, (f"코드 {code}", None))[0]
     if code == 0:
         return (f"{Path(path).name}: 단위계($INSUNITS)가 **지정되지 않았다**(0). "
-                f"우리는 mm 로 가정하고 처리한다 — 좌표, 면적이 상식적인지 확인하라")
+                f"우리는 mm 로 가정하고 처리한다 - 좌표, 면적이 상식적인지 확인하라")
     scale = _INSUNITS.get(code, (None, None))[1]
     return (f"{Path(path).name}: 단위계가 **{name}**($INSUNITS={code})다. "
             f"우리 코드는 전부 **밀리미터**를 가정한다"
@@ -151,7 +151,7 @@ def ingest(facility_id: str) -> dict:
     overview: list[dict] = []
     arrows: list[dict] = []
     ta_values: list[dict] = []
-    airflows: list[dict] = []        # 급기 풍량(CMH). 규칙 없음 — 데이터만 적재
+    airflows: list[dict] = []        # 급기 풍량(CMH). 규칙 없음 - 데이터만 적재
     interlocks: list[dict] = []      # 인터락 위치 (별표1 4-파: A/B 연결 에어락은 인터락 필수)
     gauges: list[dict] = []          # 차압계 위치 (별표1 4-너: 청정실 경계에 설치 의무)
     grade_recs: list[dict] = []      # 방번호 → 청정등급
@@ -163,7 +163,7 @@ def ingest(facility_id: str) -> dict:
               "gauge": 0, "interlock": 0, "airflow": 0}
 
     missing_files: list[str] = []
-    unit_warnings: list[str] = []       # 단위계(mm) 위반 — 조용히 틀리면 안 된다
+    unit_warnings: list[str] = []       # 단위계(mm) 위반 - 조용히 틀리면 안 된다
     name_conflicts: list[dict] = []     # 한 이름을 두 방번호가 가져감 = 옆방 이름을 훔침
     for d in fac["drawings"]:
         path = raw / d["filename"]
@@ -174,7 +174,7 @@ def ingest(facility_id: str) -> dict:
             doc = _read_dxf(str(path), unit_warnings)
             floor_doc = doc                      # 방 경계(벽) 추출에 다시 쓴다
             for rec in fp_ex.extract(doc, profile):
-                # **kind 를 확인한다.** 예전엔 추출기가 내는 걸 전부 방으로 취급했다 —
+                # **kind 를 확인한다.** 예전엔 추출기가 내는 걸 전부 방으로 취급했다 -
                 #   추출기가 새 레코드 종류를 하나라도 내면 **가짜 방**이 생긴다.
                 if rec.kind == "name_conflict":
                     # 두 방번호가 같은 이름 텍스트를 가져갔다 = 한 방이 옆방 이름을 훔쳤다.
@@ -225,7 +225,7 @@ def ingest(facility_id: str) -> dict:
         elif d["kind"] == "ceiling":
             # 천정기구배치도. 급기 풍량(CMH)이 여기 있다.
             #   단위는 도면이 명시했다(레이어 B-ZONE 의 '풍량(CMH)').
-            #   [주의]환기 횟수(ACH) 규칙은 **만들지 않는다** — 현행 고시에 수치가 없다.
+            #   [주의]환기 횟수(ACH) 규칙은 **만들지 않는다** - 현행 고시에 수치가 없다.
             #     자사 환기 기준 + 천장고가 오면 그때 만든다.
             doc = _read_dxf(str(path), unit_warnings)
             for rec in af_ex.extract(doc, profile):
@@ -249,7 +249,7 @@ def ingest(facility_id: str) -> dict:
             counts["overview"] += 1
 
     # 평면도와 차압도가 **같은 파일**이면 LBL-001/002(도면 간 대조)는 무의미하다.
-    #   참고도면 2층이 그렇다 — 차압 화살표가 평면도 **위에 겹쳐진** 구성이라 시트가 하나다.
+    #   참고도면 2층이 그렇다 - 차압 화살표가 평면도 **위에 겹쳐진** 구성이라 시트가 하나다.
     #   그런데도 LBL 이 "0건"을 내면 읽는 사람은 **"대조했더니 깨끗하다"** 로 오해한다.
     #   0건의 뜻은 "위반 없음"이 아니라 **"대조할 게 없음"** 이다. 구분해서 알린다.
     same_src = _same_source_warning(fac["drawings"])
@@ -262,12 +262,12 @@ def ingest(facility_id: str) -> dict:
         print(f"  [경고] 단위계: {w}")
     for nc in name_conflicts:
         print(f"  [주의] 이름 충돌: '{nc['name']}' 를 방 {', '.join(nc['room_nos'])} 가 "
-              f"함께 가져갔다 — 한쪽은 **옆방 이름을 훔친 것**이다")
+              f"함께 가져갔다 - 한쪽은 **옆방 이름을 훔친 것**이다")
 
     room_no_collisions: list[dict] = []      # 같은 방번호가 두 방에 → 한쪽이 사라진다
     merged = _merge(floor_rooms, pres_rooms, room_no_collisions)
     for c in room_no_collisions:
-        # 조용히 덮어쓰지 않는다. 감지기를 만들자마자 기준 시설에서 2건이 나왔다 —
+        # 조용히 덮어쓰지 않는다. 감지기를 만들자마자 기준 시설에서 2건이 나왔다 -
         #   4504 가 '(N)타정4실' 과 '(N)타정2실 전실' **두 방**에 붙어 있다(6m 떨어져 있다).
         #   그동안 한 방이 사라지고 있었는데 아무도 몰랐다.
         d = f"{c['dist_mm']:,.0f}mm 떨어짐" if c.get("dist_mm") else "거리 미상"
@@ -279,7 +279,7 @@ def ingest(facility_id: str) -> dict:
     n_pa = apply_pressures(merged, pa_recs)
     regime_counts = apply_regimes(merged, profile)
 
-    # 등급 구역 — 도면에 등급이 없는 것은 **정상**이다 (1차 미팅 대표님:
+    # 등급 구역 - 도면에 등급이 없는 것은 **정상**이다 (1차 미팅 대표님:
     #   "방별로는 안 하고 … 구역 … 나중에 'a부터 b는 그레이드 B' 이렇게 해주면
     #    [AI]가 알아서 가게끔 해야죠").
     #   나는 이걸 '도면 결함, 최대 병목' 이라고 잘못 써왔다. 결함이 아니다.
@@ -310,7 +310,7 @@ def ingest(facility_id: str) -> dict:
 
         # 장비도 **방 경계 안**에 들어가는지로 붙인다.
         #   급기 풍량은 경계 기반으로 고쳤는데 **장비는 안 고쳤다**(반경 8,000mm 최근접).
-        #   72㎡ 충진실의 장비가 1.5㎡ 전실에 붙는다 — 풍량에서 겪은 것과 **완전히 같은 오귀속**.
+        #   72㎡ 충진실의 장비가 1.5㎡ 전실에 붙는다 - 풍량에서 겪은 것과 **완전히 같은 오귀속**.
         for _eq in equipment:
             _no = boundary_res.room_at(_eq.get("x"), _eq.get("y"))                 if (_eq.get("x") is not None and _eq.get("y") is not None) else None
             if _no:
@@ -343,7 +343,7 @@ def ingest(facility_id: str) -> dict:
             #
             #   방에는 대개 문이 하나씩 있다. 그러니 '문이 닿은 방'의 비율(door_coverage)이
             #   낮으면 그건 도면에 문이 없어서가 아니라 **우리 문 검출이 실패한 것**이다.
-            #   (참고도면 14%, 기준 시설 44% — 둘 다 실패다)
+            #   (참고도면 14%, 기준 시설 44% - 둘 다 실패다)
             #
             #   그런데도 문 인접을 쓰면 ADJ-001 이 검출 못 한 문에 대해
             #   "문이 없으니 동선 위반 아님" 으로 **진짜 위반을 숨긴다.**
@@ -402,7 +402,7 @@ def ingest(facility_id: str) -> dict:
         "boundary_unsupported": (boundary_res.unsupported_types
                                  if boundary_res else {}),
         # 단위계(mm) 위반. 미터 단위 도면이 오면 **모든 거리, 면적이 1000배 어긋난다.**
-        #   예외도 안 나고 0건도 아니다 — **그럴듯하게 틀린 숫자**가 나온다. 그게 제일 나쁘다.
+        #   예외도 안 나고 0건도 아니다 - **그럴듯하게 틀린 숫자**가 나온다. 그게 제일 나쁘다.
         "unit_warnings": unit_warnings,
         # 같은 방번호가 두 번 나왔다 = **한쪽이 덮어써져 사라졌다.**
         #   비어 있어야 정상이다. 층마다 번호를 재사용하는 도면에서 터진다.
@@ -419,7 +419,7 @@ def apply_grades(merged: list[dict], grades: list[dict]) -> int:
     """등급 추출 결과(room_grade)를 병합된 방에 얹는다. 순수 함수.
 
     등급은 **방번호로** 붙인다(좌표 매칭은 추출기가 이미 끝냈다).
-    도면에 등급 표기가 없으면 grades 가 비고, 방의 grade 는 None 으로 남는다 — 그게 정상이다.
+    도면에 등급 표기가 없으면 grades 가 비고, 방의 grade 는 None 으로 남는다 - 그게 정상이다.
     """
     by_no = {g["room_no"]: g["grade"] for g in grades if g.get("room_no")}
     n = 0
@@ -448,7 +448,7 @@ def apply_regimes(merged: list[dict], profile: dict) -> dict[str, int]:
 
     이름으로 **추정**하고, 프로파일 `pressure_regime.overrides` 가 있으면 그게 이긴다.
     regime_source 로 어디서 온 값인지 남긴다(감사 추적).
-    ※이름 추론은 확정이 아니다 — 특히 '충전/충진'은 시설 종류에 따라 정반대다.
+    ※이름 추론은 확정이 아니다 - 특히 '충전/충진'은 시설 종류에 따라 정반대다.
     """
     from ..compliance.checks._regime import resolve_regime
 
@@ -469,7 +469,7 @@ def _merge(floor_rooms, pres_rooms, collisions: list[str] | None = None) -> list
 
       기준 시설은 번호에 층이 들어간다(3101 = 3층, 4101 = 4층) → 충돌이 없다.
       그런데 **층마다 101, 102 로 매기는 사무소**가 오면 3층 101 과 4층 101 이 같은 키가 되어
-      **한쪽이 통째로 사라진다.** 예외도, 로그도, 0건도 아니다 — 방 개수가 조용히 줄 뿐이다.
+      **한쪽이 통째로 사라진다.** 예외도, 로그도, 0건도 아니다 - 방 개수가 조용히 줄 뿐이다.
 
       우리 번호 체계가 마침 안전했을 뿐이다. → 충돌을 **세어서 알린다.**
       (진짜 해법은 키를 `(floor, room_no)` 로 바꾸는 것인데, 그러면 층 판정이 틀린 방이
@@ -541,7 +541,7 @@ AIRFLOW_RADIUS_MM = 4000.0    # 급기구 풍량 숫자를 방에 붙이는 반�
 def _attach_airflow_by_boundary(rooms: list[dict], flows: list[dict], bres) -> int:
     """급기 풍량(CMH)을 **방 경계 안**에 들어가는지로 붙여 합산한다.
 
-    예전엔 '반경 4m 최근접 방'으로 붙였다. 그러면 **큰 방의 급기구가 옆 작은 방에 붙는다** —
+    예전엔 '반경 4m 최근접 방'으로 붙였다. 그러면 **큰 방의 급기구가 옆 작은 방에 붙는다** -
       72㎡ 충진실의 디퓨저가 1.5㎡ 무균 전실에 붙고, NC 3㎡ 방에 1,697 CMH
       (환기 187회/hr)라는 말도 안 되는 값이 나왔다.
       **방 경계를 이미 갖고 있는데 안 쓰고 있었다.**
@@ -606,7 +606,7 @@ def _attach_interlocks(rooms: list[dict], locks: list[dict]) -> int:
         #   A/B 에 연결된 **모든 에어락이 critical 거짓 위반**이 된다.
         #   → interlock_count 를 **NULL 로 남긴다**(규칙이 판정하지 않는다).
         print(f"  [주의] 인터락 {len(locks)}개 중 방에 붙은 것 {sum(got.values())}개 "
-              f"({rate:.0%}) — **좌표계가 안 맞는다.** 다른 시트에서 왔다면 "
+              f"({rate:.0%}) - **좌표계가 안 맞는다.** 다른 시트에서 왔다면 "
               f"scripts/2_시트전처리/cut_ref_sheet_aligned.py 로 정렬할 것. "
               f"interlock_count 를 NULL 로 둔다(판정 안 함)")
         return 0
@@ -644,7 +644,7 @@ def _attach_gauges(run_id: str, gauges: list[dict]) -> int:
             # 차압계가 거의 안 붙었다 = 좌표계가 안 맞은 것이다.
             #   false 로 채우면 **청정실 경계 전 구간이 "차압계 없음" 위반**이 된다.
             #   → has_gauge 를 **NULL 로 남긴다**(PRES-005 가 판정하지 않는다).
-            print(f"  [주의] 차압계 {len(gauges)}개 중 화살표에 붙은 것 {n}개 ({rate:.0%}) — "
+            print(f"  [주의] 차압계 {len(gauges)}개 중 화살표에 붙은 것 {n}개 ({rate:.0%}) - "
                   f"**좌표계가 안 맞는다.** has_gauge 를 NULL 로 둔다(판정 안 함)")
             conn.rollback()
             return 0
@@ -679,12 +679,12 @@ def _finish_run(run_id, status, error=None) -> None:
 
 def _persist_room_no_conflicts(facility_id: str, run_id: str,
                                conflicts: list[dict]) -> None:
-    """방번호 충돌을 남긴다 — **우리 버그가 아니라 도면의 결함**이다.
+    """방번호 충돌을 남긴다 - **우리 버그가 아니라 도면의 결함**이다.
 
     감지기를 만들자마자 기준 시설에서 2건이 나왔다. 그동안 `_merge` 가 한쪽을
     **조용히 덮어썼다.** 방이 하나 사라지는데 예외도 로그도 없었다.
 
-    병합 동작(한쪽이 이긴다)은 그대로 둔다 — 방번호는 우리 데이터의 **키**라
+    병합 동작(한쪽이 이긴다)은 그대로 둔다 - 방번호는 우리 데이터의 **키**라
     중복을 허용하면 화살표, 차압 관계가 어느 방을 가리키는지 알 수 없게 된다.
     **버리되, 버렸다는 사실을 기록한다.** LBL-003 이 이걸 읽어 위반으로 보고한다.
     """
@@ -733,7 +733,7 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
                  # 인터락 도면이 없으면 None(NULL). 0 으로 채우면 "인터락이 하나도 없다"는
                  #   거짓 사실이 되어 전 에어락이 위반이 된다.
                  r.get("interlock_count"),
-                 # 급기 풍량(CMH). 규칙은 없다 — 데이터로만 둔다.
+                 # 급기 풍량(CMH). 규칙은 없다 - 데이터로만 둔다.
                  r.get("airflow_cmh"),
                  # 등급이 **어디서 왔나**: drawing / zone / product_default
                  r.get("grade_source")),

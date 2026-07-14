@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""블록 재귀 공용 도구 — **같은 함정을 여섯 번째로 밟지 않기 위해.**
+"""블록 재귀 공용 도구 - **같은 함정을 여섯 번째로 밟지 않기 위해.**
 
 ## 우리가 이 함정을 밟은 횟수
 
@@ -17,12 +17,12 @@
 ## 이 모듈이 하는 일
 
 블록 안까지 재귀로 들어가며 엔티티를 **세계좌표와 함께** 내놓는다.
-좌표 변환은 `matrix44()` 로 한다 — 직접 계산하면 **거울반사(xscale<0)** 를 놓친다
+좌표 변환은 `matrix44()` 로 한다 - 직접 계산하면 **거울반사(xscale<0)** 를 놓친다
 (차압 화살표에서 실제로 당했다).
 
     - 블록 안 엔티티의 레이어가 `'0'` 이면 **INSERT 의 레이어를 상속**한다 (CAD 규칙)
     - 꺼진, 동결 레이어는 건너뛴다 (S-10: 구버전 잔재 '유령' 차단)
-    - 버린 엔티티 수를 **센다** — 조용히 버리지 않는다
+    - 버린 엔티티 수를 **센다** - 조용히 버리지 않는다
 """
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def block_skipper(spec):
         try:
             compiled.append(re.compile(p))
         except re.error:
-            compiled.append(None)          # `*U12` 같은 이름 — 리터럴로만 본다
+            compiled.append(None)          # `*U12` 같은 이름 - 리터럴로만 본다
     def skip(name: str) -> bool:
         if not name:
             return False

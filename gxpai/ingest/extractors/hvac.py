@@ -27,10 +27,10 @@ class HvacExtractor(BaseExtractor):
 
         # **블록 재귀로 바꿨다.** 예전엔 `doc.modelspace()` 만 훑었다.
         #   AHU 태그, 기기는 대개 **장비 블록 안**에 있다. 모델스페이스만 보면 **AHU 0개**가
-        #   나오는데 예외도 경고도 없다 — 그냥 "AHU 가 없는 시설"처럼 보인다.
+        #   나오는데 예외도 경고도 없다 - 그냥 "AHU 가 없는 시설"처럼 보인다.
         #   (방 라벨, 벽, 문, 화살표, 차압계에 이어 **여섯 번째** 같은 함정이다)
         #
-        #   walk() 가 꺼진, 동결 레이어를 이미 걸러 준다(S-10). 좌표는 matrix44 변환 —
+        #   walk() 가 꺼진, 동결 레이어를 이미 걸러 준다(S-10). 좌표는 matrix44 변환 -
         #   직접 계산하면 **거울반사(xscale<0)** 를 놓친다.
         from ...ingest.blockwalk import walk, world_point
 
@@ -55,7 +55,7 @@ class HvacExtractor(BaseExtractor):
             }))
 
         # (2) 레이어명이 AHU-* 인 INSERT 위치 (텍스트 태그가 없는 경우 폴백)
-        #     **실효 레이어**로 본다 — 블록 안 엔티티가 레이어 '0' 이면 INSERT 레이어를
+        #     **실효 레이어**로 본다 - 블록 안 엔티티가 레이어 '0' 이면 INSERT 레이어를
         #       상속한다. `e.dxf.layer` 를 그대로 보면 블록 안에서 '0' 이 나와 다 놓친다.
         for e, mat, layer in entities:
             if e.dxftype() != "INSERT":

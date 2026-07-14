@@ -34,7 +34,7 @@ class RoomView:
     plan_y: float | None = None
     # 차압도에서의 좌표. **'차압도에 존재하는가'는 이름이 아니라 좌표로 판단한다.**
     #   예전엔 pressure_name 유무로 판단했다가, 차압도에 방번호만 있고 이름이 없는 도면
-    #   (참고도면)에서 51개 방을 전부 '차압도에 없음'으로 찍었다 — 거짓 위반.
+    #   (참고도면)에서 51개 방을 전부 '차압도에 없음'으로 찍었다 - 거짓 위반.
     pres_x: float | None = None
     # 아래 3개는 migration 007. 압력 규칙 재설계(PRES-001/002/003)에 필요하다.
     #   pressure_pa   : 도면에 표기된 절대 정압(Pa). 없으면 None → 수치 규칙은 조용히 건너뜀
@@ -113,7 +113,7 @@ def load_rooms(cur, run_id: str) -> list[RoomView]:
                  pressure_pa=r[7], regime=r[8], regime_source=r[9],
                  interlock_count=r[10], pres_x=r[11],
                  airflow_cmh=r[12], area_m2=r[13],
-                 # 등급 문자열 정규화 — `(D)` 대신 ` d` 나 `D ` 가 오면 rank 사전에 없어
+                 # 등급 문자열 정규화 - `(D)` 대신 ` d` 나 `D ` 가 오면 rank 사전에 없어
                  #   등급 규칙 6개가 **전부 조용히 0건**을 냈다. 한 곳에서 정규화한다.
                  grade_source=r[14])
         for r in cur.fetchall()

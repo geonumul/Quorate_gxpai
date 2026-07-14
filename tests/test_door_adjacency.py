@@ -23,7 +23,7 @@ ROOMS = [RoomView(room_no="R1", name="무균 조제실", grade="B"),
 
 
 def test_문이_없으면_등급이_급변해도_위반이_아니다():
-    """핵심. 벽 하나를 사이에 둔 무균실과 창고 — 문이 없으면 사람이 못 지나간다."""
+    """핵심. 벽 하나를 사이에 둔 무균실과 창고 - 문이 없으면 사람이 못 지나간다."""
     벽만 = [AdjPair("R1", "R2", via_door=False)]
     assert adj_001.evaluate(벽만, ROOMS, CFG) == []
 
@@ -40,7 +40,7 @@ def test_문_정보가_없는_도면은_벽_인접으로_폴백하되_보류로_
     """참고도면에는 문 블록이 없다. 판정을 **포기하지도 확정하지도** 않는다.
 
     벽 인접으로 판정하되 근거에 "문이 없으면 위반이 아닐 수 있다"를 남긴다.
-    모든 추정은 보류 — 발주처가 확인한다.
+    모든 추정은 보류 - 발주처가 확인한다.
     """
     문모름 = [AdjPair("R1", "R2", via_door=None)]
     v = adj_001.evaluate(문모름, ROOMS, CFG)
@@ -58,8 +58,8 @@ def test_한_쌍이라도_문_정보가_있으면_문_기준으로_판정한다(
     (차압 화살표에서 `rels=[]` vs `rels=None` 으로 똑같은 함정을 밟았다.)
     """
     rooms = ROOMS + [RoomView(room_no="R3", name="복도", grade="D")]
-    adj = [AdjPair("R1", "R2", via_door=False),    # 벽만 — 걸러야 한다
-           AdjPair("R2", "R3", via_door=True)]     # 문 — 판정해야 한다 (NC↔D = 2단계)
+    adj = [AdjPair("R1", "R2", via_door=False),    # 벽만 - 걸러야 한다
+           AdjPair("R2", "R3", via_door=True)]     # 문 - 판정해야 한다 (NC↔D = 2단계)
     v = adj_001.evaluate(adj, rooms, CFG)
     assert [x["rooms"] for x in v] == [["R2", "R3"]]
 

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""규칙 **미리보기(dry-run)** — 게이트를 열지 않고 무엇이 잡히는지만 본다.
+"""규칙 **미리보기(dry-run)** - 게이트를 열지 않고 무엇이 잡히는지만 본다.
 
 왜 이렇게 하나
   PRES/ADJ 규칙은 `review: unreviewed`(컨설턴트 미검수)다. 동결 게이트 원칙상
-  **실제 파이프라인에서 돌리면 안 된다** — 틀린 규칙이 위반 이력을 오염시킨다.
+  **실제 파이프라인에서 돌리면 안 된다** - 틀린 규칙이 위반 이력을 오염시킨다.
   그러나 "켜면 무엇이 나올지"는 알아야 검수를 요청할 수 있다.
   → 순수 함수 evaluate() 를 DB 데이터로 직접 호출한다. **DB 에 아무것도 쓰지 않는다.**
 
@@ -62,7 +62,7 @@ with_pa = [r for r in rooms if r.pressure_pa is not None]
 print(f"{facility} / run {run_id}")
 print(f"  방 {len(rooms)} (등급 {len(graded)}, 절대압력 {len(with_pa)})")
 print(f"  차압관계 {len(rels)} (방 귀속 확정 {len(linked)})")
-print(f"  인접 {len(adj)}쌍 (그중 **문으로 이어짐** {len(doors)} — 동선)")
+print(f"  인접 {len(adj)}쌍 (그중 **문으로 이어짐** {len(doors)} - 동선)")
 print(f"  화장실 {len(toilets)}, 휴게실/식당(좌표있음) {len(rests)}\n")
 
 CHECKS = [
@@ -79,7 +79,7 @@ CHECKS = [
     ("HVAC-001", lambda c: hvac_001.evaluate(rooms, c)),
 ]
 
-# 제형 게이트 — **무균 조문으로 완제 시설을 판정하면 안 된다.**
+# 제형 게이트 - **무균 조문으로 완제 시설을 판정하면 안 된다.**
 #   코퍼스 확인: 별표17(완제)에 '청정등급', '차압계', '인터락' 조문이 **0건**이다.
 _fac = registry.get_facility(facility) or {}
 _pt = _fac.get("product_type") or (load_profile(_fac.get("profile_id") or "") or {}).get("product_type")
@@ -97,7 +97,7 @@ for rid, fn in CHECKS:
     try:
         found = fn(cfg)
     except Exception as exc:                    # noqa: BLE001
-        print(f"{rid}: 실행 오류 — {exc}")
+        print(f"{rid}: 실행 오류 - {exc}")
         continue
 
     gate = "잠김" if not (rule.get("config") or {}).get("enabled") else "켜짐"
@@ -120,16 +120,16 @@ for rid, fn in CHECKS:
             why.append("화살표 방 귀속, 절대압력 둘 다 있어야 대조 가능")
         if rid == "HVAC-001":
             if not (cfg.get("ach_by_grade") and cfg.get("ceiling_height_m")):
-                why.append("**자사 환기 기준 + 천장고가 없다** — 발주처가 줘야 한다. "
+                why.append("**자사 환기 기준 + 천장고가 없다** - 발주처가 줘야 한다. "
                            "법정 수치(A 600회/hr)는 구 KGMP 해설서다. 쓰지 않는다")
             elif not [r for r in rooms if r.airflow_cmh is not None]:
                 why.append("급기 풍량 없음")
         if rid == "PRES-005" and not gauged:
-            why.append("차압계 도면 없음 — '차압계가 없다'와 혼동하면 안 된다")
+            why.append("차압계 도면 없음 - '차압계가 없다'와 혼동하면 안 된다")
         if rid == "ADJ-005" and not locked:
-            why.append("인터락 도면 없음 — '인터락이 없다'와 혼동하면 안 된다")
+            why.append("인터락 도면 없음 - '인터락이 없다'와 혼동하면 안 된다")
         if rid in ("ADJ-003", "ADJ-004") and not doors:
-            why.append("문 인접(동선) 없음 — 문 데이터를 못 믿는 도면")
+            why.append("문 인접(동선) 없음 - 문 데이터를 못 믿는 도면")
         if rid == "ADJ-003" and not toilets:
             why.append("도면에 **화장실이 없다** → 판정 대상 0")
         if rid == "ADJ-004" and not rests:

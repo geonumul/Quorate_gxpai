@@ -19,10 +19,10 @@
   고시 별표1 제4호 하목: "서로 다른 청정등급의 인접한 작업실은 **최소 10 파스칼(참고치) 이상**"
   → 무균제제에만 적용. `statutory_min_pa` 로 따로 둔다(위반이 아니라 **경고**).
   [주의] 흔히 쓰는 "10~15Pa"은 **2018년판까지의 문구**다. 2023년 개정에서 상한 15 가 삭제됐다.
-     (PE 009-14 "10-15 pascals" → PE 009-17 "a minimum of 10 Pascals" — 원문 대조 확인)
+     (PE 009-14 "10-15 pascals" → PE 009-17 "a minimum of 10 Pascals" - 원문 대조 확인)
      식약처 게시판에는 아직 구판 별표가 올라와 있어 설계사들이 15Pa 을 쓰는 것으로 보인다.
 
-상세 근거: 법규/조문근거_색인.md A, A-2절
+상세 근거: 10_법규/조문근거_색인.md A, A-2절
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
              rels: list[PressureRel] | None = None) -> list[dict]:
     """자사 기준서(프로파일) 범위를 벗어난 **차압 설정 구간**을 위반으로 반환.
 
-    적용 범위가 핵심이다 — 처음엔 **인접한 모든 실 쌍**에 기준을 들이댔다가 과잉 검출했다.
+    적용 범위가 핵심이다 - 처음엔 **인접한 모든 실 쌍**에 기준을 들이댔다가 과잉 검출했다.
       실제 도면에서 `Δ0Pa`(같은 등급, 같은 압력) 쌍을 무더기로 위반으로 찍었다.
       그런데 **도면 범례 3번**이 명시한다: *"기류흐름 및 차압계 설치가 요구되지 않는 위치"*.
       **차압이 설정되지 않은 구간에는 차압 기준이 애초에 적용되지 않는다.**
@@ -64,7 +64,7 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
     has_setpoint = bool(rels) and any(
         r.setpoint_pa is not None and not r.approx for r in (rels or []))
 
-    # 기준서가 없으면 '미설정' 자체가 위반 — 단, 압력 데이터가 있고 **도면 설정값도 없을 때만**
+    # 기준서가 없으면 '미설정' 자체가 위반 - 단, 압력 데이터가 있고 **도면 설정값도 없을 때만**
     if diff_range is None and same_range is None and not has_setpoint:
         has_pa = any(r.pressure_pa is not None for r in rooms)
         if has_pa:
@@ -84,7 +84,7 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
     #   `if rels:` 로 쓰면 빈 리스트가 falsy 라 '정보 없음'으로 취급돼 인접 전체를 검사한다.
     #   시험이 이 실수를 잡았다.
     #
-    # 그리고 **도면이 구간마다 목표 차압을 직접 말해준다** — 화살표 레이어 이름이
+    # 그리고 **도면이 구간마다 목표 차압을 직접 말해준다** - 화살표 레이어 이름이
     #   'Air Flow 10Pa' / 'Air Flow 15Pa' / 'Air Flow no차압' 이다.
     #   처음엔 이걸 통째로 버리고 프로파일의 등급별 범위만 썼다. 도면에 답이 적혀 있는데
     #   짐작으로 판정한 셈이다. 이제 **도면 설정값이 있으면 그것을 기준으로 삼는다**
@@ -125,7 +125,7 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
         # **복도를 빼면 안 된다.** 여기서 봉쇄형 시설의 **핵심 구간을 통째로 버리고 있었다.**
         #
         #   `regime_of(복도) == NEUTRAL` 이라 `continue` 했다. 그런데 _regime.py 가 스스로
-        #   적어 뒀다 — *"※ 복도는 '중립'이 아니라 **기준면**이다."*
+        #   적어 뒀다 - *"※ 복도는 '중립'이 아니라 **기준면**이다."*
         #
         #   봉쇄형 시설(내용고형제)에서 차압이 설정되는 구간은 **대부분 복도 ↔ 작업실**이다.
         #   그걸 다 빼면 PRES-002 는 **0건을 내고 "깨끗하다"고 말한다.**
@@ -193,7 +193,7 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
 
 
 def _statutory_note(a, b, d, same, statutory_min) -> list[dict]:
-    """고시 참고치(무균 한정) 경고 — **위반이 아니라 확인 요청**.
+    """고시 참고치(무균 한정) 경고 - **위반이 아니라 확인 요청**.
 
     사내 기준 범위 **안**이어도 참고치 미달이면 알려야 한다. 예전엔 범위 위반이 난 쌍에만
     따라붙어, 사내 기준을 지켰지만 고시 참고치엔 못 미치는 구간을 **영원히 놓쳤다.**
@@ -204,7 +204,7 @@ def _statutory_note(a, b, d, same, statutory_min) -> list[dict]:
         "severity": "minor",
         "rooms": [a, b],
         "message": (f"고시 참고치 미달(확인 필요): Δ{d:g}Pa < {statutory_min:g}Pa. "
-                    f"고시 별표1 제4호 하목은 '최소 10파스칼(참고치) 이상' — "
+                    f"고시 별표1 제4호 하목은 '최소 10파스칼(참고치) 이상' - "
                     f"오염관리전략(CCS)으로 타당성을 입증하면 달리 정할 수 있음"),
         "evidence": {"room_a": a, "room_b": b, "delta_pa": d,
                      "clause": "식약처고시 제2024-87호 별표1 제4호 하목",

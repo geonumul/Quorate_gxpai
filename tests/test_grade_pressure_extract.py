@@ -2,7 +2,7 @@
 """Grade / 절대압력(Pa) 추출기 회귀 시험.
 
 가장 중요한 회귀: **옆방 라벨을 훔쳐오지 않는 것.**
-  PDF 작업에서 실제로 당했다 — 탈의실(5Pa)과 갱의실(15Pa)의 압력이 서로 뒤바뀌었다.
+  PDF 작업에서 실제로 당했다 - 탈의실(5Pa)과 갱의실(15Pa)의 압력이 서로 뒤바뀌었다.
   라벨 블록은 [등급 / 이름 / 방번호 / 압력] 세로 4단이므로,
     - 등급은 방번호 **위**
     - 압력은 방번호 **아래**
@@ -157,7 +157,7 @@ def test_pa_풍량_숫자를_압력으로_오인하지_않는다(monkeypatch):
     import gxpai.ingest.extractors.pressure_value as P
     texts = [
         FakeText(0, 200, "F2I01"),
-        FakeText(0, 100, "270", layer="차압"),      # TA 풍량 — 압력 아님
+        FakeText(0, 100, "270", layer="차압"),      # TA 풍량 - 압력 아님
     ]
     _patch(monkeypatch, P, texts)
     assert [r for r in PressureValueExtractor().extract(FakeDoc(texts), PROFILE)

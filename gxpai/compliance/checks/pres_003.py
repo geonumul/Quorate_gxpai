@@ -16,7 +16,7 @@
   - 같은 안내서 p.33
       "분진이 발생하는 작업실에는 국소집진시설을 설치할 것"
   - 1차 미팅(2026-07-09) 대표님: "복도가 높고 여기가 낮다… 복도 공기가 룸 안으로 들어가야 돼"
-  - 상세: 법규/조문근거_색인.md A-4, A-5절
+  - 상세: 10_법규/조문근거_색인.md A-4, A-5절
 
 판정 방법 (두 가지 증거를 모두 쓴다)
   1) **화살표**(pressure_relation): 봉쇄실이 화살표의 *고압(tail)* 쪽에 있고
@@ -41,7 +41,7 @@ def _contradicts(hi: RoomView, lo: RoomView) -> bool:
     """화살표와 절대압력이 **서로 어긋나는가.**
 
     근거가 둘인데 **어긋나면 판정하지 않는다.** 그게 우리 철칙이다.
-      PRES-004 의 이력이 증언한다 — *"화살표 vs 압력 모순 9건이 **전부 우리 버그**였다."*
+      PRES-004 의 이력이 증언한다 - *"화살표 vs 압력 모순 9건이 **전부 우리 버그**였다."*
       그런 구간에서 PRES-003 이 critical 을 내면 **우리 버그를 위반으로 보고**하는 것이다.
       → 모순은 PRES-004 가 "확인 필요"로 보고한다. PRES-003 은 **손을 뗀다.**
     """
@@ -81,7 +81,7 @@ def evaluate(rels: list[PressureRel], adj: list[AdjPair], rooms: list[RoomView],
             "severity": "critical",
             "rooms": [room, other],
             "message": (f"봉쇄 실패: {kind} {room}({view[room].name or ''})이(가) "
-                        f"{other}({oname})보다 고압 — {why}. "
+                        f"{other}({oname})보다 고압 - {why}. "
                         f"분진이 밖으로 확산될 수 있음"),
             "evidence": {"room": room, "neighbor": other,
                          "neighbor_regime": regime[other][0] if other in regime else None,
@@ -94,7 +94,7 @@ def evaluate(rels: list[PressureRel], adj: list[AdjPair], rooms: list[RoomView],
     #       contain → neutral (보관실, 기계실) 2건
     #       contain → protect (청정실) 1건  ← 이게 제일 나쁘다
     #     분진이 나가는 곳이 복도든 보관실이든 청정실이든 **봉쇄 실패**다.
-    #     (contain → contain 은 둘 다 분진 구역이라 문제 아님 — 실제 14건 있었다)
+    #     (contain → contain 은 둘 다 분진 구역이라 문제 아님 - 실제 14건 있었다)
     for rel in rels:
         if rel.approx or not rel.room_high_no or not rel.room_low_no:
             continue

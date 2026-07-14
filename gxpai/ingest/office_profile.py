@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""사무소 온보딩 — DXF 를 훑어 **프로파일 초안**을 만든다.
+"""사무소 온보딩 - DXF 를 훑어 **프로파일 초안**을 만든다.
 
 ## 왜 필요한가
 
@@ -12,7 +12,7 @@
 **코드를 고치지 않고 프로파일(YAML)만 갈아 끼워서** 새 사무소를 받을 수 있어야 한다.
 이 모듈은 그 프로파일의 **초안**을 도면에서 자동으로 뽑는다.
 
-## 초안은 초안이다 — 사람이 확인해야 한다
+## 초안은 초안이다 - 사람이 확인해야 한다
 
 자동 추정은 **틀린다.** 우리가 이미 여러 번 당했다:
   - 벽 레이어를 이름으로 짐작(`크린판넬`) → 96개 방이 하나의 40,710㎡ 덩어리가 됐다
@@ -44,7 +44,7 @@ import math
 import re
 from collections import Counter, defaultdict
 
-# 방번호 패턴 후보 — 어느 것이 맞는지 **세어서** 고른다
+# 방번호 패턴 후보 - 어느 것이 맞는지 **세어서** 고른다
 NUM_PATTERNS = [
     ("paren", re.compile(r"^\((\d{3,5}(?:-\d+)?)\)$"), r"^\((\d{3,5}(?:-\d+)?)\)$"),
     ("bare", re.compile(r"^(\d{3,5}(?:-\d+)?)$"), r"^(\d{3,5}(?:-\d+)?)$"),
@@ -162,8 +162,8 @@ def _pick_number_pattern(texts) -> tuple[str, str, Counter]:
     """방번호 표기 방식을 **세어서** 고른다. 짐작하지 않는다.
 
     **총 개수로 고르면 틀린다.** 참고도면에서 실제로 틀렸다:
-        code (`F2I01`)  ROOMNUMBER 레이어에 **51개** — 정답
-        bare (`3200`)   Roomheight(천장고) 35 + ARCH-기존 26 = **61개** — 이겼다(오답)
+        code (`F2I01`)  ROOMNUMBER 레이어에 **51개** - 정답
+        bare (`3200`)   Roomheight(천장고) 35 + ARCH-기존 26 = **61개** - 이겼다(오답)
 
       천장고, 치수 같은 **딴 숫자들이 합쳐져** 방번호를 이겨 버린 것이다.
 
@@ -171,8 +171,8 @@ def _pick_number_pattern(texts) -> tuple[str, str, Counter]:
       → **한 레이어 최대 개수**로 고른다.
     """
     # 그래도 부족했다. 내용고형제에서:
-    #     paren (`(3301)`)  TEX 레이어에 111개 — **정답**
-    #     bare  (`3200`)    TXT 레이어에 115개 — 이겼다(장비 태그, 치수 숫자였다)
+    #     paren (`(3301)`)  TEX 레이어에 111개 - **정답**
+    #     bare  (`3200`)    TXT 레이어에 115개 - 이겼다(장비 태그, 치수 숫자였다)
     #
     #   더 좋은 신호가 있다: **방번호 옆에는 방 이름(한글)이 있다.**
     #   장비 태그나 치수 숫자 옆에는 방 이름이 없다.
@@ -198,7 +198,7 @@ def _pick_number_pattern(texts) -> tuple[str, str, Counter]:
     best = max(use, key=lambda n: use[n].most_common(1)[0][1])
     src = next(s for n, _r, s in NUM_PATTERNS if n == best)
 
-    # 후보를 **전부** 내놓는다. 자동 판별에는 한계가 있다 — 아는 척하면 안 된다.
+    # 후보를 **전부** 내놓는다. 자동 판별에는 한계가 있다 - 아는 척하면 안 된다.
     #
     #   내용고형제에서 방번호 표기가 **두 가지 섞여 있었다**:
     #       `(3301)` TMP_TXT 96개   ← 평면도 시트 (정답)
@@ -257,7 +257,7 @@ def _score_doors(sc) -> list[tuple[str, float, str]]:
 def _score_arrows(doc, sc) -> list[tuple[str, int, str]]:
     """차압 화살표 후보. 블록 외곽선에 **뾰족한 끝**이 있는지 **실측**한다.
 
-    회전각으로 방향을 추측하지 않는다 — 블록마다 화살촉 방향이 정반대일 수 있다.
+    회전각으로 방향을 추측하지 않는다 - 블록마다 화살촉 방향이 정반대일 수 있다.
       (실제로 그 가정 때문에 화살표 28개 중 9개를 거꾸로 읽었다)
     """
     from .arrowgeom import block_tip_local
@@ -324,7 +324,7 @@ def analyze(doc) -> dict:
     return {
         "방번호": {"pattern": pat_name, "regex": pat_src,
                  "layers": num_layers.most_common(3), "count": sum(num_layers.values()),
-                 # 후보를 전부 준다. 시트가 다르면 표기도 다르다 — 사람이 골라야 한다.
+                 # 후보를 전부 준다. 시트가 다르면 표기도 다르다 - 사람이 골라야 한다.
                  "후보": num_alts},
         "방이름": {"layers": name_layers.most_common(3), "count": sum(name_layers.values())},
         "청정등급": {"layers": grade_layers.most_common(3), "count": sum(grade_layers.values())},

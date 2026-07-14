@@ -24,7 +24,7 @@ from ezdxf.addons import Importer
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-SRC = Path(r"D:\14. Dev Project\Quorate\참고도면_원본_CAD\dxf\참고도면(2).dxf")
+SRC = Path(r"D:\14. Dev Project\Quorate\02_참고도면\dxf\참고도면(2).dxf")
 PLAN_BLOCK = "2층평면도(260320)"
 # 시트 간격보다 **작게** 잡아야 한다. 125,000 으로 뒀더니 옆 시트(차압계, x=371,500)가
 #   딸려와 방번호가 102개(51×2)로 두 배가 됐다. 실제 시트 간격은 106,026mm.

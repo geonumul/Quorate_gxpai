@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.stdout.reconfigure(encoding="utf-8")
 import ezdxf
 
-DXF = Path(r"D:\14. Dev Project\Quorate\참고도면_원본_CAD\dxf\참고도면(2).dxf")
+DXF = Path(r"D:\14. Dev Project\Quorate\02_참고도면\dxf\참고도면(2).dxf")
 if not DXF.exists():
     sys.exit(f"없음: {DXF}")
 doc = ezdxf.readfile(str(DXF))
