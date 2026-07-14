@@ -7,4 +7,4 @@
 
 
 def __todo__() -> None:
-    raise NotImplementedError("gxpai/export/dxf.py - see docs/GUIDELINE.md (T3.5)")
+    raise NotImplementedError("gxpai/export/dxf.py - see docs/02_개발_가이드라인.md (T3.5)")

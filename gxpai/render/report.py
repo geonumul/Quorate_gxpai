@@ -158,9 +158,9 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
     out.append('<div class="banner"><b>게이트 잠김 — 압력(PRES), 인접(ADJ) 규칙은 '
                '아직 실행하지 않습니다.</b><br>' + gate_why +
                '<br>검수 전에는 위반 이력을 DB에 쓰지 않습니다. '
-               '무엇이 잡히는지는 <code>scripts/preview_rules.py</code> 로만 봅니다(dry-run).'
+               '무엇이 잡히는지는 <code>scripts/1_운영/preview_rules.py</code> 로만 봅니다(dry-run).'
                '<br>모든 추정은 <b>보류, 발주처 확인 필요</b>입니다 — '
-               '<code>docs/발주처_확인요청서_2026-07-14.md</code></div>')
+               '<code>docs/20_발주처_확인요청서.md</code></div>')
 
     out.append("<h2>품질 지표</h2><div class='metrics'>")
     for k, v in metrics.items():

@@ -16,7 +16,7 @@ LBL-002 는 "평면도, 차압도 **한쪽에만** 있는 방"을 찾는다. 그
 
 ## 왜 못 잡았나 — **미리보기만 돌리고 validate 를 안 돌렸다**
 
-`scripts/preview_rules.py` 는 PRES/ADJ 만 본다. LBL 은 안 본다.
+`scripts/1_운영/preview_rules.py` 는 PRES/ADJ 만 본다. LBL 은 안 본다.
 참고도면에 **실제 파이프라인(validate)을 한 번도 안 돌려봤다.**
 → 규칙을 미리보기로만 검증하지 말 것. **실제 파이프라인도 돌려볼 것.**
 """

@@ -217,7 +217,7 @@ def ingest(facility_id: str) -> dict:
             counts["pressure"] += 1
         elif d["kind"] == "gauge":
             # 차압계 배치도. **다른 시트**라서 좌표를 기준 시트로 맞춰 잘라 둬야 한다
-            #   (scripts/cut_ref_sheet_aligned.py). 안 맞추면 전부 헛것이 된다.
+            #   (scripts/2_시트전처리/cut_ref_sheet_aligned.py). 안 맞추면 전부 헛것이 된다.
             doc = _read_dxf(str(path), unit_warnings)
             for rec in ga_ex.extract(doc, profile):
                 gauges.append(rec.payload)
@@ -607,7 +607,7 @@ def _attach_interlocks(rooms: list[dict], locks: list[dict]) -> int:
         #   → interlock_count 를 **NULL 로 남긴다**(규칙이 판정하지 않는다).
         print(f"  [주의] 인터락 {len(locks)}개 중 방에 붙은 것 {sum(got.values())}개 "
               f"({rate:.0%}) — **좌표계가 안 맞는다.** 다른 시트에서 왔다면 "
-              f"scripts/cut_ref_sheet_aligned.py 로 정렬할 것. "
+              f"scripts/2_시트전처리/cut_ref_sheet_aligned.py 로 정렬할 것. "
               f"interlock_count 를 NULL 로 둔다(판정 안 함)")
         return 0
 

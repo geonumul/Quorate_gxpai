@@ -7,4 +7,4 @@
 
 
 def __todo__() -> None:
-    raise NotImplementedError("gxpai/generate/loop.py - see docs/GUIDELINE.md (T3.4)")
+    raise NotImplementedError("gxpai/generate/loop.py - see docs/02_개발_가이드라인.md (T3.4)")

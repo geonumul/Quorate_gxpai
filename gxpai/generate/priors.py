@@ -7,4 +7,4 @@
 
 
 def __todo__() -> None:
-    raise NotImplementedError("gxpai/generate/priors.py - see docs/GUIDELINE.md (T3.2)")
+    raise NotImplementedError("gxpai/generate/priors.py - see docs/02_개발_가이드라인.md (T3.2)")
