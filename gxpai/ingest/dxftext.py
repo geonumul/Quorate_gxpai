@@ -44,18 +44,31 @@ def _layer_visible(doc, layer_name: str) -> bool:
 
 
 def iter_label_texts_any_layer(doc, entity_types=("TEXT", "MTEXT")):
-    """모든 레이어의 보이는 TEXT/MTEXT를 (x, y, text, layer) 로 순회 (profile wizard 용)."""
+    """모든 레이어의 보이는 TEXT/MTEXT를 (x, y, text, layer) 로 순회.
+
+    ★**블록 안까지 재귀한다.** 예전엔 `doc.modelspace()` 만 훑었다.
+
+      설계개요(공사명·연면적·용도)는 대개 **표제란 블록 안**에 있다.
+      그런데 이 함수를 쓰는 overview 추출기가 모델스페이스만 봐서,
+      표제란이 블록이면 **설계개요 0건**이 나온다 — 예외 하나 없이.
+
+      blockwalk 모듈이 스스로 적어 뒀다: 우리는 이 함정을 **다섯 번** 밟았다
+      (방 라벨 · 벽 · 문 · 화살표 · 차압계). 여기가 여섯 번째였다.
+
+    ⚠재귀하면 블록 안 구성 요소가 딸려온다 → **TEXT/MTEXT 만** 집는다.
+    ⚠좌표는 matrix44 로 변환한다. 직접 계산하면 **거울반사**를 놓친다.
+    """
+    from .blockwalk import walk, world_point
+
     types = tuple(entity_types)
-    for e in doc.modelspace():
+    for e, mat, lay in walk(doc):
         if e.dxftype() not in types:
-            continue
-        if not _layer_visible(doc, e.dxf.layer):
             continue
         t = normalize_dxf_text(e)
         if not t:
             continue
-        pos = text_position(e)
-        yield (pos.x, pos.y, t, e.dxf.layer)
+        x, y = world_point(text_position(e), mat)
+        yield (x, y, t, lay)
 
 
 def _effective_layer(entity, parent_layer: str | None) -> str:
@@ -104,7 +117,10 @@ def iter_label_texts(doc, layers, entity_types=("TEXT", "MTEXT"), max_depth: int
         layers = [layers]
     layers = set(layers)
     types = tuple(entity_types)
-    skip_re = re.compile(exclude_blocks) if exclude_blocks else None
+    # ★정규식만 받았다 → `*U12`(AutoCAD 익명 블록) 이 오면 컴파일이 터진다.
+    #   이제 공용 판정기가 정규식·부분문자열을 둘 다 받고 터지지 않는다.
+    from .blockwalk import block_skipper
+    skip_block = block_skipper(exclude_blocks)
 
     def walk(container, mat: Matrix44 | None, parent_layer: str | None, depth: int):
         for e in container:
@@ -112,7 +128,7 @@ def iter_label_texts(doc, layers, entity_types=("TEXT", "MTEXT"), max_depth: int
             if t == "INSERT":
                 if depth >= max_depth:
                     continue            # 순환 참조·과도한 중첩 방어
-                if skip_re is not None and skip_re.search(e.dxf.name):
+                if skip_block(e.dxf.name):
                     continue            # 기둥·치수 등 방 라벨이 아닌 블록
                 blk = None
                 try:

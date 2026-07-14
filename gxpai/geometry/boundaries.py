@@ -66,6 +66,11 @@ class BoundaryResult:
     door_coverage: float = 0.0
     cell_mm: float = 50.0
     failed: list[str] = field(default_factory=list)
+    # ★장벽으로 태우지 **못한** 기하 타입과 개수(벽/문 레이어 위에서).
+    #   예전엔 이걸 안 세서 **조용히 사라졌다** — 기준 평면도에서 ELLIPSE 32·POLYLINE 22.
+    #   벽을 구형 POLYLINE 으로 그리는 사무소가 오면 벽이 통째로 뭉개지는데
+    #   로그 한 줄 안 남는다. 이 카운터가 유일한 단서다.
+    unsupported_types: dict[str, int] = field(default_factory=dict)
 
     # ★좌표 → 방번호. **경계 안에 들어가는지**로 붙인다.
     #   예전엔 '반경 안의 최근접 방'으로 붙였다. 그러면 72㎡ 충진실의 급기구가
@@ -90,8 +95,38 @@ class BoundaryResult:
         return self._by_lid.get(int(lab[py, px]))
 
 
+# 곡선을 선분으로 풀 때의 현(chord) 오차. 벽 두께(≈100mm)보다 훨씬 작으면 충분하다.
+FLATTEN_MM = 20.0
+
+# 우리가 **장벽으로 태울 수 있는** 기하 타입 전부.
+_GEOM_TYPES = ("LINE", "LWPOLYLINE", "ARC", "POLYLINE", "CIRCLE", "SPLINE", "ELLIPSE")
+
+# ★기본 장벽 타입 — **실측으로 정했다. 짐작이 아니다.**
+#
+#   기준 평면도(f_1ae3a266 · 방 라벨 111개)로 타입을 켜 가며 **방 경계 성공 수를 쟀다**:
+#
+#       LINE+LWPOLYLINE+ARC (기존)        경계 79/111
+#       + POLYLINE                        경계 80/111   ← 한 방 늘었다
+#       + POLYLINE+CIRCLE+SPLINE+ELLIPSE  경계 80/111   ← 더 켜도 변화 없다
+#
+#   → POLYLINE 은 **켠다.** 벽 레이어 위에 실제로 22개가 있었고(그동안 버려졌다),
+#     켜니 방이 하나 늘고 아무것도 안 깨졌다. 구형 폴리라인(LWPOLYLINE 이전 표기)이라
+#     벽을 이걸로 그리는 사무소가 오면 **벽이 통째로 사라진다.**
+#
+#   → CIRCLE·SPLINE·ELLIPSE 는 **끈다.** 이 도면에선 켜도 이득이 없다(80 그대로).
+#     그리고 `wall_layers: ["*"]`(전 레이어) 프로파일에서 켜면 가구·기호·조경이
+#     전부 장벽이 되어 **방이 잘게 쪼개진다.** 이득 없는 위험은 지지 않는다.
+#
+#   ⚠다른 사무소는 다를 수 있다. 프로파일 `boundaries.barrier_types` 로 덮어써라.
+#     그리고 **켠 뒤 방 개수로 반드시 확인해라. 짐작으로 정하지 마라.**
+#     못 태운 타입은 `BoundaryResult.unsupported_types` 에 세어 둔다 — 그게 유일한 단서다.
+BARRIER_TYPES_DEFAULT = ("LINE", "LWPOLYLINE", "ARC", "POLYLINE")
+
+
 def _iter_wall_segments(doc, layers: list[str], max_depth: int = 5,
-                        skip_blocks: list[str] | None = None):
+                        skip_blocks: list[str] | None = None,
+                        barrier_types: tuple[str, ...] = BARRIER_TYPES_DEFAULT,
+                        unsupported: dict[str, int] | None = None):
     """벽/문 레이어에서 선분(2점)을 뽑는다. LINE·LWPOLYLINE·ARC(현으로 근사) 지원.
 
     ★**블록(INSERT) 안까지 재귀로 들어간다.**
@@ -115,12 +150,23 @@ def _iter_wall_segments(doc, layers: list[str], max_depth: int = 5,
     #   참고도면에서는 문제되지 않았다(51/51). 안 되는 도면이 나오면 그때 걸러낸다.
     #   **어느 쪽이든 결과를 방 개수로 확인하고 쓴다. 짐작으로 정하지 않는다.**
     all_layers = "*" in want
-    skip = [s for s in (skip_blocks or [])]
+    # ★프로파일 문법 불일치를 흡수한다(정규식·부분문자열 둘 다 받는다).
+    from ..ingest.blockwalk import block_skipper
+    skip = block_skipper(skip_blocks)
+    barrier_types = tuple(barrier_types)
+    if unsupported is None:
+        unsupported = {}
 
     def emit(e, mat, lay):
         if not all_layers and lay.lower() not in want:
             return
         t = e.dxftype()
+        if t not in barrier_types:
+            # ★**조용히 버리지 않는다.** 무엇을 못 다뤘는지 세어서 호출자에게 알린다.
+            #   이 카운터가 없어서 기준 평면도에서 88,356 개가 사라지는 걸 아무도 몰랐다.
+            if t in _GEOM_TYPES:
+                unsupported[t] = unsupported.get(t, 0) + 1
+            return
 
         def tp(x, y):
             if mat is None:
@@ -152,6 +198,39 @@ def _iter_wall_segments(doc, layers: list[str], max_depth: int = 5,
                 if prev:
                     yield (prev[0], prev[1], p[0], p[1])
                 prev = p
+        # ── 아래 4종은 **예전에 조용히 버려졌다** ────────────────────
+        #
+        # ★처음엔 "기준 평면도에서 88,356 개가 버려진다"고 썼다. **부풀린 숫자였다.**
+        #   그건 문서 **전체**의 개수다(SPLINE 51,883 · CIRCLE 27,954 …).
+        #   대부분 가구·조경·표제란이라 **레이어 필터에서 이미 걸러진다.**
+        #
+        #   실제로 재 보니 **벽/문 레이어 위**에서 버려지던 건 이만큼이다:
+        #       ELLIPSE 32 · POLYLINE 22   (기준 평면도, 총 54개)
+        #
+        #   작지만 **진짜 손실**이다. 그리고 이 도면이 마침 그럴 뿐이다 —
+        #   벽을 구형 POLYLINE 으로 그리는 사무소가 오면 **벽이 통째로 사라진다.**
+        #   (POLYLINE 은 LWPOLYLINE 이전 표기다. 오래된 CAD 가 만든 블록은 아직도 쓴다)
+        #
+        # ⚠그렇다고 다 켜면 안 된다. `wall_layers: ["*"]`(참고도면) 이면
+        #   **전 레이어가 장벽이 된다** — 원·스플라인은 벽이 아니라 가구·기호다.
+        #   → `barrier_types` 로 타입별로 켜고 끈다. 기본값은 실측으로 정했다.
+        elif t == "POLYLINE":
+            try:
+                pts = [tp(v.dxf.location.x, v.dxf.location.y) for v in e.vertices]
+            except AttributeError:
+                return
+            if getattr(e, "is_closed", False) and len(pts) > 2:
+                pts.append(pts[0])
+            for i in range(len(pts) - 1):
+                yield (pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1])
+        elif t in ("CIRCLE", "SPLINE", "ELLIPSE"):
+            # ezdxf 가 곡선을 선분열로 풀어 준다(현 오차 FLATTEN_MM).
+            try:
+                pts = [tp(p.x, p.y) for p in e.flattening(FLATTEN_MM)]
+            except (AttributeError, ValueError, ZeroDivisionError):
+                return                       # 퇴화 도형(반지름 0 등) — 벽이 아니다
+            for i in range(len(pts) - 1):
+                yield (pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1])
 
     def walk(container, mat: "Matrix44 | None", parent_layer: str | None, depth: int):
         for e in container:
@@ -165,7 +244,7 @@ def _iter_wall_segments(doc, layers: list[str], max_depth: int = 5,
             if e.dxftype() == "INSERT":
                 if depth >= max_depth:
                     continue
-                if any(s in e.dxf.name for s in skip):
+                if skip(e.dxf.name):
                     continue
                 blk = doc.blocks.get(e.dxf.name)
                 if blk is None:
@@ -291,12 +370,17 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
     max_area = float(cfg.get("max_area_m2", 2000))
     min_area = float(cfg.get("min_area_m2", 1))
 
+    # 프로파일이 장벽 타입을 덮어쓸 수 있다(사무소마다 벽을 그리는 타입이 다르다).
+    bt = tuple(cfg.get("barrier_types") or BARRIER_TYPES_DEFAULT)
+    unsupported: dict[str, int] = {}
     segs = list(_iter_wall_segments(doc, list(wall_layers) + list(door_layers),
-                                    skip_blocks=cfg.get("skip_blocks")))
+                                    skip_blocks=cfg.get("skip_blocks"),
+                                    barrier_types=bt, unsupported=unsupported))
     pts = [(r["plan_x"], r["plan_y"]) for r in rooms
            if r.get("plan_x") is not None and r.get("plan_y") is not None]
     if not segs or not pts:
         return BoundaryResult(cell_mm=cell,
+                              unsupported_types=unsupported,
                               failed=["벽 선분 없음" if not segs else "방 라벨 좌표 없음"])
 
     xs = [s[0] for s in segs] + [s[2] for s in segs] + [p[0] for p in pts]
@@ -341,7 +425,11 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
     lab, _n = ndimage.label(walls == 0)      # 벽으로 나뉜 자유공간 덩어리
     cell_m2 = (cell / 1000.0) ** 2
 
-    res = BoundaryResult(cell_mm=cell)
+    # ★버려진 기하 타입을 **성공 경로에도** 실어 보낸다.
+    #   처음엔 실패 경로(벽 0개)에만 배선해서, 정상 실행에선 계속 0 으로 보였다 —
+    #   벽 레이어 위에 실제로 54개(ELLIPSE 32·POLYLINE 22)가 버려지고 있는데도.
+    #   **경고를 만들어 놓고 정작 그 경고가 안 뜨는 경로에 뒀다.** 측정하다 잡았다.
+    res = BoundaryResult(cell_mm=cell, unsupported_types=unsupported)
     owner: dict[int, str] = {}
 
     for r in rooms:
