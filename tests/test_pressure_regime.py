@@ -388,3 +388,56 @@ def test_충전실_오인이_세_규칙에서_다_막혔나():
     assert adj_005.is_airlock("무균 전실")
     assert adj_002.is_gowning("무균 전실")
     assert adj_001._is_airlock("무균 전실", adj_001.DEFAULT_AIRLOCK)
+
+
+# ── 회사마다 이름이 다르다 (대량 데이터 대비) ──────────────────────
+def test_회사마다_다른_이름을_다_잡는다():
+    """★1차 미팅(2026-07-09) 대표님:
+
+    "이게 우리나라 말로 **타정실**이고, **어떤 회사는 그냥 '타블렛 4' 이렇게도 써놓거든요.**
+     정제를 뜻하는 거라서 **회사마다 그런 명칭이 다 틀려요.**"
+
+    한글만 보면 대량 데이터에서 바로 깨진다. 영문·동의어를 넣었다.
+    """
+    for n in ["타정1실", "타블렛 4", "정제실", "압축실",
+              "Tablet Room 2", "TABLETTING", "tablet room",
+              "Weighing Room", "Dispensing 1", "계량실", "평량실",
+              "Granulation", "조립실", "Blending", "배합실", "Mixing Room 1",
+              "Coating 2", "Milling", "파쇄실"]:
+        assert infer_regime(n) == CONTAIN, n
+
+
+def test_대소문자를_무시한다():
+    """★영문 동의어를 넣고도 **대소문자 때문에 안 잡혀서** 한 번 당했다.
+
+    `Tablet Room` · `TABLETTING` · `tablet` 이 다 같은 말이다.
+    """
+    for n in ["Tablet", "TABLET", "tablet", "TaBlEt"]:
+        assert infer_regime(n) == CONTAIN, n
+
+
+def test_동의어를_넣어도_기존_함정이_안_깨진다():
+    """★가장 중요한 회귀. 낱말을 늘리면 오탐이 늘기 쉽다."""
+    assert infer_regime("(N)칭량 전 원료대기실") == NEUTRAL      # 대기실 = 공정실 아님
+    assert infer_regime("(N)타정1실 전실") == PROTECT           # 전실 = 에어락
+    assert infer_regime("무균 충전실") == PROTECT               # '충전실' ≠ '전실'
+    assert infer_regime("(N)과립액 조제1실") == PROTECT         # '액' = 액체
+    assert infer_regime("정립실복도") == NEUTRAL                # 복도가 먼저
+    assert infer_regime("(N)코팅기계1실") == NEUTRAL            # 기계실
+
+
+def test_프로파일로_동의어를_더_넣을_수_있다():
+    """대량 데이터가 오면 **우리가 모르는 이름**이 반드시 나온다.
+
+    그때 **코드를 고치지 않고 프로파일만** 고쳐서 받는다.
+    """
+    from gxpai.compliance.checks import _regime
+
+    before = _regime.DUST_WORDS
+    try:
+        assert infer_regime("건식과립실") == CONTAIN            # '과립' 이 이미 있다
+        assert infer_regime("압출성형실") == PROTECT            # '압출' 은 모른다
+        _regime.extend_from_profile({"name_synonyms": {"dust": ["압출"]}})
+        assert infer_regime("압출성형실") == CONTAIN            # 이제 안다
+    finally:
+        _regime.DUST_WORDS = before

@@ -44,15 +44,39 @@ NEUTRAL = "neutral"          # 압력 관리 대상 아님(복도·보관소·�
 #     무균제제의 '바이알 충진' = 액체 → 분진 없음(보호)
 #     이름만으로는 못 가른다. **프로파일(regime_overrides)로 지정할 것.**
 #     '건조' 도 같은 이유로 뺐다(동결건조는 무균 공정).
+#   ★★회사마다 **이름이 다르다.** 1차 미팅(2026-07-09) 대표님:
+#     "이게 우리나라 말로 **타정실**이고, **어떤 회사는 그냥 '타블렛 4' 이렇게도 써놓거든요.**
+#      정제를 뜻하는 거라서 **회사마다 그런 명칭이 다 틀려요.**"
+#   → 한글만 보면 대량 데이터에서 바로 깨진다. **동의어를 넣는다.**
+#     프로파일의 `name_synonyms` 로 더 넣을 수 있다(코드 수정 없이).
 DUST_WORDS = (
-    "칭량", "계량", "혼합", "과립", "정립", "타정", "코팅", "분쇄", "선별", "제립",
+    # 칭량 · 계량 (weighing / dispensing)
+    "칭량", "계량", "평량", "WEIGH", "DISPENS",
+    # 혼합 · 배합 (mixing / blending)
+    "혼합", "배합", "MIX", "BLEND",
+    # 과립 · 조립 (granulation)
+    "과립", "조립", "GRANUL",
+    # 정립 · 분쇄 (sizing / milling)
+    "정립", "분쇄", "파쇄", "MILL", "SIZING",
+    # 타정 · 정제 · 타블렛 (tableting)  ← 대표님이 직접 든 예
+    "타정", "정제", "타블렛", "타블렛팅", "압축", "TABLET", "COMPRESS", "TABLETING",
+    # 코팅 (coating)
+    "코팅", "COAT",
+    # 선별 (sorting / inspection)
+    "선별", "SORT",
+    # 제립
+    "제립",
+    # 캡슐 충전은 분진이지만 '충전'은 시설에 따라 정반대라 여기 안 넣는다(아래 주석 참조)
 )
 
 # 특수제제 → 음압 격리
 #   근거: 시설기준령 시행규칙 제2조①1호·제5조
 HAZARD_WORDS = (
-    "페니실린", "세팔로스포린", "카바페넴", "모노박탐",
-    "성호르몬", "호르몬", "세포독성", "항암",
+    "페니실린", "PENICILLIN", "세팔로스포린", "CEPHALOSPORIN",
+    "카바페넴", "CARBAPENEM", "모노박탐", "MONOBACTAM",
+    "성호르몬", "호르몬", "HORMONE",
+    "세포독성", "CYTOTOX", "항암", "ONCOLOG",
+    "베타락탐", "BETA-LACTAM", "BETALACTAM",
 )
 
 # 압력 관리 대상이 아닌 공간
@@ -72,7 +96,7 @@ NEUTRAL_WORDS = (
     #         공정을 하는 방이 아니다 → 압력 관리 대상이 아니다.
     "대기",
 )
-CORRIDOR_WORDS = ("복도", "통로", "회랑")
+CORRIDOR_WORDS = ("복도", "통로", "회랑", "CORRIDOR", "HALLWAY", "PASSAGE")
 
 # ★분진 낱말이 들어 있어도 **그 공정을 하는 방이 아닌** 경우 (2026-07-14 추가)
 #
@@ -118,27 +142,32 @@ def head_form(name: str | None) -> str:
     """
     n = _PAREN.sub("", name or "")
     n = _DIGIT.sub("", n)
-    return n.replace(" ", "")
+    # ★대소문자를 무시한다. `Tablet Room` · `TABLETTING` · `tablet` 이 다 같은 말이다.
+    #   (영문 동의어를 넣고도 대소문자 때문에 안 잡혀서 한 번 당했다)
+    return n.replace(" ", "").upper()
 
 
 def is_corridor(name: str | None) -> bool:
     """복도인가. 봉쇄 검사의 '기준면'이 된다."""
-    return bool(name) and any(w in name for w in CORRIDOR_WORDS)
+    if not name:
+        return False
+    n = name.replace(" ", "").upper()
+    return any(w.replace(" ", "").upper() in n for w in CORRIDOR_WORDS)
 
 
 def is_dust_process(name: str | None) -> bool:
     """분진이 나는 **공정을 하는 방**인가. 이름에 낱말이 들었는지가 아니다."""
-    h = head_form(name)
+    h = head_form(name)                   # 대문자로 정규화돼 돌아온다
     if not h:
         return False
-    if any(h.endswith(w) for w in NEGATION_HEADS):
+    if any(h.endswith(w.upper()) for w in NEGATION_HEADS):
         return False                      # 대기실·보관실·전실·기계실 = 공정실이 아니다
     for w in DUST_WORDS:
-        i = h.find(w)
+        i = h.find(w.upper())
         if i < 0:
             continue
         # '과립액' '코팅액' = 액체다. 분말 공정이 아니다.
-        if h[i + len(w):].startswith(LIQUID_SUFFIX):
+        if h[i + len(w):].startswith(LIQUID_SUFFIX.upper()):
             continue
         return True
     return False
@@ -158,15 +187,15 @@ def infer_regime(name: str | None, grade: str | None = None) -> str:
          `반제품 보관실(선별전)`·`코팅기계1실` 을 전부 봉쇄실로 오판(기준 시설에서 10방).
          **머리말을 봐야 한다** (is_dust_process). 한국어는 마지막 명사가 머리말이다.
     """
-    n = (name or "").replace(" ", "")
+    n = (name or "").replace(" ", "").upper()   # 대소문자 무시
 
-    if any(w in n for w in HAZARD_WORDS):
+    if any(w.upper() in n for w in HAZARD_WORDS):
         return HAZARD
-    if is_corridor(n):
+    if is_corridor(name):
         return NEUTRAL
     if is_dust_process(name):
         return CONTAIN
-    if any(w in n for w in NEUTRAL_WORDS):
+    if any(w.upper() in n for w in NEUTRAL_WORDS):
         return NEUTRAL
     return PROTECT
 
@@ -181,8 +210,9 @@ def resolve_regime(name: str | None, grade: str | None,
 
 
 # ── 에어락(전실) 판별 — 여러 규칙이 함께 쓴다 ──────────────────────
-AIRLOCK_WORDS = ("전실", "에어락", "에어록", "air lock", "airlock",
-                 "패스박스", "pass box", "해치", "hatch")
+AIRLOCK_WORDS = ("전실", "에어락", "에어록", "air lock", "airlock", "AIRLOCK",
+                 "패스박스", "pass box", "PASSBOX", "PASS-BOX",
+                 "해치", "hatch", "ANTEROOM", "AIR SHOWER", "에어샤워")
 
 # ★★`전실` 은 **다른 낱말에 끼어 있다.**
 #     `무균 **충전실**` · `캡슐 **충전실**` · `**변전실**` · `**발전실**`
@@ -206,3 +236,34 @@ def is_airlock(name: str | None, words=AIRLOCK_WORDS,
     if any(w.replace(" ", "").lower() in n for w in not_words):
         return False
     return any(w.replace(" ", "").lower() in n for w in words)
+
+
+def extend_from_profile(profile: dict) -> None:
+    """프로파일의 `name_synonyms` 로 낱말 목록을 **넓힌다**. 코드 수정 없이.
+
+    회사마다 이름이 다르다(대표님: "타정실 = 어떤 회사는 타블렛"). 대량 데이터가 오면
+    우리가 모르는 이름이 반드시 나온다. 그때 **프로파일만 고쳐서** 받는다.
+
+        name_synonyms:
+          dust:    [압출, 건식과립]      # 분진 공정에 추가
+          hazard:  [스테로이드]
+          neutral: [린넨실, 폐기물실]
+          airlock: [버퍼존]              # 대표님이 쓴 말이다
+          corridor: [진입로]
+
+    ⚠ 목록은 **모듈 전역**이라 한 번 넓히면 그 프로세스 내내 유지된다.
+      시설마다 다른 낱말을 쓰면 서로 섞인다 — 지금은 시설을 한 번에 하나씩만
+      처리하므로 문제없다. 동시에 여러 시설을 돌리게 되면 이 설계를 바꿔야 한다.
+    """
+    global DUST_WORDS, HAZARD_WORDS, NEUTRAL_WORDS, CORRIDOR_WORDS, AIRLOCK_WORDS
+    syn = profile.get("name_synonyms") or {}
+    if not syn:
+        return
+    def add(cur, key):
+        extra = tuple(str(w) for w in (syn.get(key) or []))
+        return cur + tuple(w for w in extra if w not in cur)
+    DUST_WORDS = add(DUST_WORDS, "dust")
+    HAZARD_WORDS = add(HAZARD_WORDS, "hazard")
+    NEUTRAL_WORDS = add(NEUTRAL_WORDS, "neutral")
+    CORRIDOR_WORDS = add(CORRIDOR_WORDS, "corridor")
+    AIRLOCK_WORDS = add(AIRLOCK_WORDS, "airlock")
