@@ -17,7 +17,9 @@ try:
     import ezdxf  # noqa: F401
     from tests.fixtures.synthetic.make_synth import build
     HAVE_EZDXF = True
-except Exception:
+except ImportError:      # ★`except Exception` 이었다 — fixture 가 **고장나도**
+    # "ezdxf 미설치"로 둔갑해 시험이 통째로 skip 되고 **초록불**이 떴다.
+    # 못 불러오는 것(ImportError)만 건너뛴다. 그 외 오류는 터뜨린다.
     HAVE_EZDXF = False
 
 

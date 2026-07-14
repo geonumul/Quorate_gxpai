@@ -97,7 +97,11 @@ def test_문_검출률이_낮으면_문_데이터를_쓰면_안_된다():
     높음 = _res(10, [("R0", "R1"), ("R2", "R3"), ("R4", "R5"), ("R6", "R7"), ("R8", "R1")])
     assert 높음.door_coverage == 0.9
 
-    DOOR_TRUST = 0.8
+    # ★예전엔 여기서 `DOOR_TRUST = 0.8` 이라고 **손으로 다시 적었다.**
+    #   그러면 run.py 의 진짜 문턱값이 0.5 로 바뀌어도 **이 시험은 계속 초록불**이다.
+    #   시험이 지키는 게 없다. → 진짜 상수를 import 한다.
+    from gxpai.core.run import DOOR_TRUST
+
     assert 낮음.door_coverage < DOOR_TRUST      # → None 을 넘겨 via_door NULL
     assert 높음.door_coverage >= DOOR_TRUST     # → 문 인접을 쓴다
 
