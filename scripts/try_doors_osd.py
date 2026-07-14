@@ -23,12 +23,12 @@ with connect() as c, c.cursor() as cur:
 DOOR_LAYERS = (sys.argv[1].split(",") if len(sys.argv) > 1
                else ["DOR", "DOOR", "DOOR-HID", "DOOR(HIDDEN)"])
 arcs = list(iter_door_arcs(doc, DOOR_LAYERS))
-print(f"■ 문 레이어 {DOOR_LAYERS}")
+print(f"문 레이어 {DOOR_LAYERS}")
 print(f"   블록 재귀로 찾은 호(ARC): {len(arcs)}개")
 print(f"   방 라벨(번호방): {len(rooms)}개\n")
 
 base = {
-    # ★B-WAL 을 놓치고 있었다. 실패한 방 주변 6m 안의 축-나란 선분을 레이어별로
+    # B-WAL 을 놓치고 있었다. 실패한 방 주변 6m 안의 축-나란 선분을 레이어별로
     #   세어 보고 찾았다("이름으로 짐작하지 말고 방 주변에서 세어라").
     "wall_layers": ["하니컴패널", "B-WAL", "계단실", "COL", "창호", "WIN-1",
                     "크린판넬", "판넬", "GW PANEL", "스테인레스 칸막이벽",
@@ -44,6 +44,6 @@ for label, seal in (("문 막기 끔", False), ("문 막기 켬", True)):
     res = boundaries.build(doc, rooms, cfg)
     ok = {r.room_no for r in res.rooms}
     got = [r for r in rooms if r["room_no"] in ok]
-    print(f"▸ {label}: {len(res.rooms)}/{len(rooms)} 방  "
-          f"(3F {by_floor(got).get('3F',0)} · 4F {by_floor(got).get('4F',0)})  "
+    print(f"{label}: {len(res.rooms)}/{len(rooms)} 방  "
+          f"(3F {by_floor(got).get('3F',0)}, 4F {by_floor(got).get('4F',0)})  "
           f"인접 {len(res.adjacency)}")

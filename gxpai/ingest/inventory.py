@@ -90,7 +90,7 @@ def inventory(dxf_path: str) -> dict:
 def print_report(inv: dict) -> None:
     h = inv["header"]
     print(f"[inventory] {inv['source_file']}")
-    print(f"  DXF버전 {h['dxf_version']} · INSUNITS={h['insunits']} · codepage={h['dwgcodepage']}")
+    print(f"  DXF버전 {h['dxf_version']}, INSUNITS={h['insunits']}, codepage={h['dwgcodepage']}")
     print(f"  전체 엔티티 종류: {inv['entity_types'][:6]}")
     print(f"  글자(TEXT+MTEXT) 총 {inv['text_total']}")
     print("  글자 많은 레이어 top:")
@@ -103,5 +103,5 @@ def print_report(inv: dict) -> None:
     for name, n in inv["top_block_names"]:
         print(f"    {name:24s} {n}")
     d = inv["diagnostics"]
-    print(f"  진단: 정렬텍스트 {d['text_halign_nonzero']} · OCS미러 {d['ocs_mirror_entities']} "
-          f"· z오염 {d['z_nonzero_entities']} · frozen/off레이어 {len(inv['frozen_off_layers'])}")
+    print(f"  진단: 정렬텍스트 {d['text_halign_nonzero']}, OCS미러 {d['ocs_mirror_entities']} "
+          f", z오염 {d['z_nonzero_entities']}, frozen/off레이어 {len(inv['frozen_off_layers'])}")

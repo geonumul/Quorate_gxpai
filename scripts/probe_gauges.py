@@ -8,7 +8,7 @@
 도면이 이미 구간별로 말해준다:
   Air Flow 10Pa / 15Pa  = 차압이 **설정된** 구간
   Air Flow no차압       = 차압계 설치가 **요구되지 않는** 위치 (도면 범례 3번)
-→ 설정된 구간인데 차압계가 없으면, 유지·기록할 방법이 없다.
+→ 설정된 구간인데 차압계가 없으면, 유지, 기록할 방법이 없다.
 """
 import math, sys
 from pathlib import Path
@@ -28,7 +28,7 @@ for e in g.modelspace():
         except Exception:
             continue
         gauges.append((p.x, p.y, e.dxf.layer))
-print(f"■ 차압계 {len(gauges)}개")
+print(f"차압계 {len(gauges)}개")
 xs = [p[0] for p in gauges]; ys = [p[1] for p in gauges]
 print(f"   좌표 범위 x {min(xs):.0f}~{max(xs):.0f}  y {min(ys):.0f}~{max(ys):.0f}")
 
@@ -48,7 +48,7 @@ with connect() as c, c.cursor() as cur:
     print("   방 좌표 범위 x {:.0f}~{:.0f}  y {:.0f}~{:.0f}".format(*cur.fetchone()))
 
 R = 3000.0
-print(f"\n■ 차압 설정 구간 {len(rels)}개 — 반경 {R:.0f}mm 안에 차압계가 있는가")
+print(f"\n차압 설정 구간 {len(rels)}개 — 반경 {R:.0f}mm 안에 차압계가 있는가")
 miss = []
 for hi, lo, ex, ey, sp, lay in rels:
     near = [gg for gg in gauges if math.hypot(gg[0]-ex, gg[1]-ey) <= R]
@@ -57,6 +57,6 @@ for hi, lo, ex, ey, sp, lay in rels:
         pass
     elif sp:
         miss.append((hi, lo, tag, ex, ey))
-print(f"   차압계 있음 {len(rels)-len(miss)}  ·  **없음 {len(miss)}**")
+print(f"   차압계 있음 {len(rels)-len(miss)}, **없음 {len(miss)}**")
 for hi, lo, tag, ex, ey in miss[:10]:
     print(f"      {hi} → {lo}  설정 {tag}  @({ex:.0f},{ey:.0f})")

@@ -5,7 +5,7 @@ docs/기존데이터_분석.md 발견 3의 근거를 뽑는 일회성 분석. �
 화살표를 같은 좌표계로 읽어, 각 화살표가 어느 두 방 사이에 있고 화살촉이 어느 방을 향하는지
 구한 뒤, 방향 그래프의 출발점(source)/도착점(sink)을 낸다.
 
-핵심 논리: 계단실·샤프트(PD/AV)는 물리적으로 가장 저압인 '공기가 최종적으로 빠지는 곳'이다.
+핵심 논리: 계단실, 샤프트(PD/AV)는 물리적으로 가장 저압인 '공기가 최종적으로 빠지는 곳'이다.
 이들이 전부 도착점(화살촉이 향하는 곳)이면 → 화살촉은 저압 쪽을 가리킨다(고압→저압).
 
 화살표 기하(S-1 확정): rotation=0 에서 화살촉 -y(아래). 세계각도 = 270° + rotation.
@@ -114,7 +114,7 @@ def main() -> int:
     amb_src = [no for no in allrooms if outd[no] > 0 and ind[no] == 0
                and any(k in (name_of.get(no) or "") for k in AMBIENT)]
     print(f"계단/샤프트: 도착점(SINK) {len(amb)}개 / 출발점(SOURCE) {len(amb_src)}개")
-    print("판정: 계단·샤프트가 전부 도착점이면 화살촉=저압 쪽(고압→저압).")
+    print("판정: 계단, 샤프트가 전부 도착점이면 화살촉=저압 쪽(고압→저압).")
     print(f"  도착점인 계단/샤프트: {[name_of.get(n) for n in amb]}")
     return 0
 

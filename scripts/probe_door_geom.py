@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DOOR 레이어·문 블록의 기하를 본다. 벽 구멍을 막을 '문턱선'을 만들 수 있는가?"""
+"""DOOR 레이어, 문 블록의 기하를 본다. 벽 구멍을 막을 '문턱선'을 만들 수 있는가?"""
 import sys
 from collections import Counter
 from pathlib import Path
@@ -12,11 +12,11 @@ f = next(p for p in (raw_dir() / "f_1ae3a266").iterdir() if "평면" in p.name)
 doc = ezdxf.readfile(str(f))
 msp = doc.modelspace()
 
-print("■ DOOR 레이어 엔티티 종류 (모델스페이스 최상위)")
+print("DOOR 레이어 엔티티 종류 (모델스페이스 최상위)")
 t = Counter(e.dxftype() for e in msp if e.dxf.layer.startswith("DOOR"))
 print("  ", dict(t))
 
-print("\n■ 문 블록 INSERT 의 레이어·크기 (샘플)")
+print("\n문 블록 INSERT 의 레이어, 크기 (샘플)")
 DOORBLK = ("Panel Door", "SD(", "SD ", "양개")
 n = 0
 xs, ys = [], []
@@ -40,7 +40,7 @@ if xs:
     print(f"   블록 크기(가로) 중앙값 ~{sorted(xs)[len(xs)//2]:.0f}mm  "
           f"(세로) ~{sorted(ys)[len(ys)//2]:.0f}mm")
 
-print("\n■ 문 블록의 정의 안 기하 (Panel Door 11)")
+print("\n문 블록의 정의 안 기하 (Panel Door 11)")
 b = doc.blocks.get("Panel Door 11")
 if b:
     c = Counter(e.dxftype() for e in b)

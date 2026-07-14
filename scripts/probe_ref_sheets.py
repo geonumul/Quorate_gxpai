@@ -13,14 +13,14 @@ if not DXF.exists():
 doc = ezdxf.readfile(str(DXF))
 msp = doc.modelspace()
 
-print("■ 모델스페이스 최상위 INSERT (= 시트)")
+print("모델스페이스 최상위 INSERT (= 시트)")
 for e in sorted(msp.query("INSERT"), key=lambda e: e.dxf.insert.x):
     blk = doc.blocks.get(e.dxf.name)
     n = sum(1 for _ in blk) if blk else 0
     if n > 50:
         print(f"   x={e.dxf.insert.x:9.0f}  {e.dxf.name!r:28} 엔티티 {n:6d}")
 
-print("\n■ 시트 제목 텍스트")
+print("\n시트 제목 텍스트")
 for e in msp:
     if e.dxftype() in ("TEXT", "MTEXT"):
         t = (e.plain_text() if e.dxftype() == "MTEXT" else e.dxf.text).strip()

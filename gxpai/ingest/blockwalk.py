@@ -7,7 +7,7 @@
     ② 벽이 "안 그려져 있다" → 블록 안에 있었다     (boundaries._iter_wall_segments 로 고침)
     ③ 문이 "없다"      → 블록 안에 있었다         (door_barriers.iter_door_arcs 로 고침)
 
-그런데 **차압 화살표 · 차압계 · 인터락 · 급기 풍량 · 설계개요**는 아직도
+그런데 **차압 화살표, 차압계, 인터락, 급기 풍량, 설계개요**는 아직도
 `doc.modelspace()` 만 훑고 있었다(전수 감사에서 나왔다).
 
 같은 도면에서 방 라벨이 3단 블록 중첩 안에 있는데(참고도면), 화살표만 모델스페이스에
@@ -20,9 +20,9 @@
 좌표 변환은 `matrix44()` 로 한다 — 직접 계산하면 **거울반사(xscale<0)** 를 놓친다
 (차압 화살표에서 실제로 당했다).
 
-    · 블록 안 엔티티의 레이어가 `'0'` 이면 **INSERT 의 레이어를 상속**한다 (CAD 규칙)
-    · 꺼진·동결 레이어는 건너뛴다 (S-10: 구버전 잔재 '유령' 차단)
-    · 버린 엔티티 수를 **센다** — 조용히 버리지 않는다
+    - 블록 안 엔티티의 레이어가 `'0'` 이면 **INSERT 의 레이어를 상속**한다 (CAD 규칙)
+    - 꺼진, 동결 레이어는 건너뛴다 (S-10: 구버전 잔재 '유령' 차단)
+    - 버린 엔티티 수를 **센다** — 조용히 버리지 않는다
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def layer_visible(doc, layer_name: str) -> bool:
 def block_skipper(spec):
     """블록 이름 **제외 규칙** → 판정 함수. 프로파일 문법 불일치를 여기서 흡수한다.
 
-    ★같은 개념인데 **문법이 두 가지**였다. 프로파일 작성자가 반드시 틀린다:
+    같은 개념인데 **문법이 두 가지**였다. 프로파일 작성자가 반드시 틀린다:
 
         label_exclude_blocks: "기둥"          ← **정규식 문자열** (dxftext 가 컴파일)
         boundaries.skip_blocks: ["B2026…"]   ← **부분문자열 리스트** (blockwalk 가 `in` 비교)
@@ -51,7 +51,7 @@ def block_skipper(spec):
 
     → 이제 **양쪽 다 받는다.** 문자열이든 리스트든, 정규식이든 부분문자열이든.
 
-    ⚠AutoCAD **익명 블록**은 이름이 `*U12` · `*D5` 꼴이다. 그대로 컴파일하면
+    [주의]AutoCAD **익명 블록**은 이름이 `*U12`, `*D5` 꼴이다. 그대로 컴파일하면
       `re.error: nothing to repeat` 로 터진다. → 컴파일 실패하면 **리터럴로 강등**한다.
     """
     if not spec:
@@ -80,10 +80,10 @@ def walk(doc, max_depth: int = 5, skip_blocks=None, yield_inserts: bool = False)
 
     matrix44 가 None 이면 모델스페이스 직속(변환 불필요)이다.
 
-    yield_inserts: INSERT 자체도 내놓는다. **차압 화살표·차압계처럼 INSERT 가 곧 데이터**인
+    yield_inserts: INSERT 자체도 내놓는다. **차압 화살표, 차압계처럼 INSERT 가 곧 데이터**인
         경우에 쓴다. 이때도 **재귀는 계속**하므로, 블록 안에 중첩된 INSERT 도 잡힌다.
 
-    ★★재귀를 켜면 **블록 안의 구성 요소까지 딸려온다.**
+    재귀를 켜면 **블록 안의 구성 요소까지 딸려온다.**
       차압흐름도에서 화살표 INSERT 39개를 재귀하면 그 블록 안의 선분 507개가 나온다.
       → **반드시 우리가 쓰는 엔티티 타입만 골라 써야 한다.** 안 그러면 화살표가 507개가 된다.
       (블록 재귀를 켜면서 기둥 블록의 철골 규격이 방 이름으로 딸려온 적이 있다)
@@ -125,7 +125,7 @@ def walk(doc, max_depth: int = 5, skip_blocks=None, yield_inserts: bool = False)
 
 
 def world_point(p, mat):
-    """블록 로컬 점 → 세계좌표. matrix44 가 회전·축척·**거울반사**를 다 처리한다."""
+    """블록 로컬 점 → 세계좌표. matrix44 가 회전, 축척, **거울반사**를 다 처리한다."""
     if mat is None:
         return (p.x, p.y)
     q = mat.transform((p.x, p.y, 0.0))

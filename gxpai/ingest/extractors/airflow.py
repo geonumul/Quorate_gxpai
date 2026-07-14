@@ -7,11 +7,11 @@
 TA 단위(CMH 인지 Pa 인지)는 오래 '보류'였는데 **도면 스스로 확정해 줬다.**
 (적어도 이 도면에서는. 기준 시설의 `TA` 레이어는 여전히 추정이다 — 도면이 다르다.)
 
-## ⚠★그런데 환기 횟수(ACH) 규칙은 **만들지 않는다**
+## [주의]그런데 환기 횟수(ACH) 규칙은 **만들지 않는다**
 
-수치(Class 100(A) 600회/hr · Class 10,000(B) 20회/hr)는
+수치(Class 100(A) 600회/hr, Class 10,000(B) 20회/hr)는
 「GMP 조사평가 매뉴얼」이 인용한 **구 KGMP 해설서**에만 있다.
-**현행 고시(별표1, 2023 개정 · PIC/S Annex 1 기반)에는 환기 횟수 수치가 없다.**
+**현행 고시(별표1, 2023 개정, PIC/S Annex 1 기반)에는 환기 횟수 수치가 없다.**
 (별표1의 '환기' 언급 6건은 전부 EO 멸균 환기 등 다른 맥락이다 — 전수 확인했다)
 
 현행은 오염관리전략(CCS)으로 타당성을 입증하게 한다.
@@ -61,7 +61,7 @@ class AirflowExtractor(BaseExtractor):
             out.append(Record(kind="airflow", payload={
                 "x": round(p.x, 1), "y": round(p.y, 1),
                 "cmh": float(t),
-                # ★단위는 도면이 명시했다: 레이어 B-ZONE 의 '풍량(CMH)'
+                # 단위는 도면이 명시했다: 레이어 B-ZONE 의 '풍량(CMH)'
                 "unit": cfg.get("unit", "CMH"),
                 "unit_source": cfg.get("unit_source", "도면 표기"),
             }))

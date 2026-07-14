@@ -59,11 +59,11 @@ rests = [r for r in rooms if is_rest_area(r.name) and r.plan_x is not None]
 graded = [r for r in rooms if r.grade]
 with_pa = [r for r in rooms if r.pressure_pa is not None]
 
-print(f"■ {facility} / run {run_id}")
-print(f"  방 {len(rooms)} (등급 {len(graded)} · 절대압력 {len(with_pa)})")
+print(f"{facility} / run {run_id}")
+print(f"  방 {len(rooms)} (등급 {len(graded)}, 절대압력 {len(with_pa)})")
 print(f"  차압관계 {len(rels)} (방 귀속 확정 {len(linked)})")
 print(f"  인접 {len(adj)}쌍 (그중 **문으로 이어짐** {len(doors)} — 동선)")
-print(f"  화장실 {len(toilets)} · 휴게실/식당(좌표있음) {len(rests)}\n")
+print(f"  화장실 {len(toilets)}, 휴게실/식당(좌표있음) {len(rests)}\n")
 
 CHECKS = [
     ("PRES-001", lambda c: pres_001.evaluate(rels, rooms, c)),
@@ -79,8 +79,8 @@ CHECKS = [
     ("HVAC-001", lambda c: hvac_001.evaluate(rooms, c)),
 ]
 
-# ★★제형 게이트 — **무균 조문으로 완제 시설을 판정하면 안 된다.**
-#   코퍼스 확인: 별표17(완제)에 '청정등급'·'차압계'·'인터락' 조문이 **0건**이다.
+# 제형 게이트 — **무균 조문으로 완제 시설을 판정하면 안 된다.**
+#   코퍼스 확인: 별표17(완제)에 '청정등급', '차압계', '인터락' 조문이 **0건**이다.
 _fac = registry.get_facility(facility) or {}
 _pt = _fac.get("product_type") or (load_profile(_fac.get("profile_id") or "") or {}).get("product_type")
 _scope = product_scope(_pt)
@@ -90,24 +90,24 @@ for rid, fn in CHECKS:
     rule = rules.get(rid, {})
     cfg = dict(rule.get("config") or {})
     if not applies(cfg, _scope):
-        print(f"▸ {rid}  ⊘ **적용 대상 아님**")
+        print(f"{rid}  ⊘ **적용 대상 아님**")
         print(f"     {why_not(cfg, _scope, _pt)}\n")
         continue
     cfg["enabled"] = True                       # 미리보기에서만 켠다(DB 미기록)
     try:
         found = fn(cfg)
     except Exception as exc:                    # noqa: BLE001
-        print(f"▸ {rid}: 실행 오류 — {exc}")
+        print(f"{rid}: 실행 오류 — {exc}")
         continue
 
     gate = "잠김" if not (rule.get("config") or {}).get("enabled") else "켜짐"
-    print(f"▸ {rid}  [{rule.get('review')}, 게이트 {gate}]  → {len(found)}건")
+    print(f"{rid}  [{rule.get('review')}, 게이트 {gate}]  → {len(found)}건")
     for v in found[:6]:
-        print(f"     · {v['message']}")
+        print(f", {v['message']}")
     if len(found) > 6:
         print(f"     … 외 {len(found) - 6}건")
     if not found:
-        # ★"위반이 없다" 와 "검사할 게 없다" 는 **완전히 다르다.**
+        # "위반이 없다" 와 "검사할 게 없다" 는 **완전히 다르다.**
         #   구분하지 않으면 리포트를 읽는 사람이 "검사했는데 깨끗하다"로 오해한다.
         why = []
         if rid in ("PRES-001", "ADJ-001") and not graded:
@@ -115,9 +115,9 @@ for rid, fn in CHECKS:
         if rid == "PRES-002" and not with_pa:
             why.append("절대압력(Pa) 없음")
         if rid == "PRES-003" and not linked and not with_pa:
-            why.append("화살표 방 귀속·절대압력 둘 다 없음")
+            why.append("화살표 방 귀속, 절대압력 둘 다 없음")
         if rid == "PRES-004" and not (linked and with_pa):
-            why.append("화살표 방 귀속·절대압력 둘 다 있어야 대조 가능")
+            why.append("화살표 방 귀속, 절대압력 둘 다 있어야 대조 가능")
         if rid == "HVAC-001":
             if not (cfg.get("ach_by_grade") and cfg.get("ceiling_height_m")):
                 why.append("**자사 환기 기준 + 천장고가 없다** — 발주처가 줘야 한다. "
@@ -133,7 +133,7 @@ for rid, fn in CHECKS:
         if rid == "ADJ-003" and not toilets:
             why.append("도면에 **화장실이 없다** → 판정 대상 0")
         if rid == "ADJ-004" and not rests:
-            why.append("도면에 좌표 있는 **휴게실·식당이 없다** → 판정 대상 0")
+            why.append("도면에 좌표 있는 **휴게실, 식당이 없다** → 판정 대상 0")
         if why:
             print(f"     (판정 불가: {', '.join(why)})")
         else:

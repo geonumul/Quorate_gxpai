@@ -2,7 +2,7 @@
 """기준 시설 도면 **전부**에서 청정등급의 흔적을 사냥한다.
 
 "등급 표기 0건"이 정말 사실인가? 우리는 **평면도만** 뒤졌을 수 있다.
-차압도(PRESSURIZATION PLAN)·HVAC 도면에 등급 구역이 있는 경우가 흔하다.
+차압도(PRESSURIZATION PLAN), HVAC 도면에 등급 구역이 있는 경우가 흔하다.
 """
 import re, sys
 from collections import Counter
@@ -20,7 +20,7 @@ for f in sorted((raw_dir()/"f_1ae3a266").iterdir()):
     try:
         doc = ezdxf.readfile(str(f))
     except Exception as e:
-        print(f"■ {f.name}: 못 읽음 {e}"); continue
+        print(f"{f.name}: 못 읽음 {e}"); continue
     hits = Counter()
     lays = Counter()
 
@@ -42,7 +42,7 @@ for f in sorted((raw_dir()/"f_1ae3a266").iterdir()):
                 lays[lay] += 1
 
     walk(doc.modelspace(), None, 0)
-    print(f"\n■ {f.name}  → 등급 후보 {sum(hits.values())}건")
+    print(f"\n{f.name}  → 등급 후보 {sum(hits.values())}건")
     if hits:
         print("   레이어:", dict(lays.most_common(5)))
         for t, n in hits.most_common(12):

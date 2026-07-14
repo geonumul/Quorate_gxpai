@@ -3,7 +3,7 @@
 
 로드맵: T2.2.4
 현재 구현(그래프에 있는 것): 방 이웃, 층별 방수, 인접 통계, 고립 방(X-14: 인접 0 = 경계실패 신호).
-PRESSURE_OVER/Grade 의존 질의(압력경로, 갱의체인, Grade 경계쌍)는 방향확정·Grade수령 후 추가.
+PRESSURE_OVER/Grade 의존 질의(압력경로, 갱의체인, Grade 경계쌍)는 방향확정, Grade수령 후 추가.
 """
 from __future__ import annotations
 

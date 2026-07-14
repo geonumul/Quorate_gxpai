@@ -30,6 +30,6 @@ def walk(container, where):
                 walk(blk, f"{where}>{e.dxf.name}")
 
 walk(doc.modelspace(), "MS")
-print(f"\n■ 철골/기둥 규격 같은 텍스트 {sum(hits.values())}개")
+print(f"\n철골/기둥 규격 같은 텍스트 {sum(hits.values())}개")
 for (lay, where, s), n in hits.most_common(18):
     print(f"   레이어={lay!r:28} 경로={where:22} {s!r} ×{n}")

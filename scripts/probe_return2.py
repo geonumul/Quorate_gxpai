@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """급기−리턴의 **부호** = 이웃 대비 상대 압력. (첫 모델이 틀려서 다시 세운 것)
 
-★첫 모델: "급기 − 리턴 > 0 = 양압" → 19방 중 10방이 불일치. **틀렸다.**
+첫 모델: "급기 − 리턴 > 0 = 양압" → 19방 중 10방이 불일치. **틀렸다.**
   방에는 **이웃에서 넘어오는 공기**가 있다. 복도는 리턴이 급기보다 많은 게 정상이다
   (다른 방에서 흘러든 공기를 복도에서 뽑아낸다).
 
-★맞는 모델: 순유출(+) → 이웃보다 고압 / 순유입(−) → 이웃보다 저압.
+맞는 모델: 순유출(+) → 이웃보다 고압 / 순유입(−) → 이웃보다 저압.
 """
 import math, re, sys
 from pathlib import Path
@@ -47,7 +47,7 @@ nbr = {}
 for a,b in doors:
     nbr.setdefault(a,[]).append(b); nbr.setdefault(b,[]).append(a)
 
-print(f"■ 급기 {len(sa)}개({sum(v for *_,v in sa):,.0f} CMH) · 리턴 {len(ra)}개({sum(v for *_,v in ra):,.0f} CMH)")
+print(f"급기 {len(sa)}개({sum(v for *_,v in sa):,.0f} CMH), 리턴 {len(ra)}개({sum(v for *_,v in ra):,.0f} CMH)")
 print(f"\n  {'방':7} {'이름':20} {'급기-리턴':>10} {'이 방':>7} {'이웃평균':>8}  판정")
 ok = bad = hold = 0
 for no,nm,pa,_x,_y in sorted(rooms):
@@ -58,8 +58,8 @@ for no,nm,pa,_x,_y in sorted(rooms):
     if abs(dp) < 2 or abs(diff) < 100:
         v, hold = "보류(차이 미미)", hold+1
     elif (diff > 0) == (dp > 0):
-        v, ok = "✔", ok+1
+        v, ok = "", ok+1
     else:
-        v, bad = "★불일치", bad+1
+        v, bad = "불일치", bad+1
     print(f"  {no:7} {(nm or '')[:18]:20} {diff:>+10,.0f} {pa:>6.0f}Pa {avg:>7.1f}Pa  {v}")
-print(f"\n  일치 {ok} · 불일치 {bad} · 보류 {hold}")
+print(f"\n  일치 {ok}, 불일치 {bad}, 보류 {hold}")

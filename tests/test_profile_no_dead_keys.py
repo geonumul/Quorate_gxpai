@@ -36,7 +36,7 @@ import pytest
 yaml = pytest.importorskip("yaml")
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-# ★`_schema.yaml` 은 프로파일이 아니라 **스키마 정의**($schema/type/properties)다 → 제외.
+# `_schema.yaml` 은 프로파일이 아니라 **스키마 정의**($schema/type/properties)다 → 제외.
 #   `_TEMPLATE.yaml` 은 **검사한다** — 템플릿에 죽은 키가 있으면 신규 사무소마다 번진다.
 PROFILES = sorted(p for p in (ROOT / "profiles").glob("*.yaml")
                   if p.name != "_schema.yaml")
@@ -50,7 +50,7 @@ SECTIONS = {
     "pressure_regime", "grade_zones", "name_synonyms", "sheets",
 }
 
-# 키가 아니라 **값**인 것들(등급 이름·방번호 등)은 검사 대상이 아니다.
+# 키가 아니라 **값**인 것들(등급 이름, 방번호 등)은 검사 대상이 아니다.
 SKIP_SECTIONS = {"floors", "grade_zones", "name_synonyms", "sheets"}
 
 
@@ -81,7 +81,7 @@ def _keys(node, path=""):
 def test_프로파일에_죽은_키가_없다(path: pathlib.Path):
     """모든 키는 코드 어딘가에서 **실제로 읽혀야** 한다.
 
-    ★`ahu_layers: []` 가 이 시험에 걸렸다. hvac 추출기는 `ahu_layer_prefix` 만 읽는다.
+    `ahu_layers: []` 가 이 시험에 걸렸다. hvac 추출기는 `ahu_layer_prefix` 만 읽는다.
       프로파일 작성자는 이걸로 AHU 추출을 껐다고 믿었지만 **아무 일도 일어나지 않았다.**
     """
     prof = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -93,7 +93,7 @@ def test_프로파일에_죽은_키가_없다(path: pathlib.Path):
             continue
         if key in SECTIONS:
             continue                      # 섹션 이름은 코드가 통째로 꺼내 쓴다
-        # 코드가 이 키를 문자열로 언급하는가 — `get("k")` · `["k"]` · `.get('k')`
+        # 코드가 이 키를 문자열로 언급하는가 — `get("k")`, `["k"]`, `.get('k')`
         if re.search(rf"""["']{re.escape(key)}["']""", SOURCE):
             continue
         dead.append(where)

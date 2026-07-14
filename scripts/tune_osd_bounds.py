@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""벽 재귀를 켠 뒤 남은 15방을 마저 잡는다. 격자·틈메우기 값을 훑는다."""
+"""벽 재귀를 켠 뒤 남은 15방을 마저 잡는다. 격자, 틈메우기 값을 훑는다."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -23,7 +23,7 @@ WALL = ["하니컴패널", "B-WAL", "계단실", "COL", "창호", "WIN-1", "크�
 DOOR = ["DOR", "DOOR", "DOOR-HID", "DOOR(HIDDEN)"]
 n3 = sum(1 for r in rooms if r["floor"] == "3F")
 n4 = sum(1 for r in rooms if r["floor"] == "4F")
-print(f"방 {len(rooms)} (3F {n3} · 4F {n4})\n")
+print(f"방 {len(rooms)} (3F {n3}, 4F {n4})\n")
 print(f"{'cell':>5} {'close':>6} {'adj':>5} {'min㎡':>6} │ {'방':>7} {'3F':>6} {'4F':>6} {'인접':>5}")
 best = None
 for cell in (60,):
@@ -41,5 +41,5 @@ for cell in (60,):
                   f"{g3:>3}/{n3:<2} {g4:>3}/{n4:<2} {len(res.adjacency):>5}")
             if best is None or len(res.rooms) > best[0]:
                 best = (len(res.rooms), cell, cg, mn, len(res.adjacency))
-print(f"\n■ 최고: 방 {best[0]}/{len(rooms)}  cell={best[1]} close_gap={best[2]} "
+print(f"\n최고: 방 {best[0]}/{len(rooms)}  cell={best[1]} close_gap={best[2]} "
       f"min_area={best[3]}  인접 {best[4]}")

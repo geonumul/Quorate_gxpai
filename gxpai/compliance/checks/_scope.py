@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """규칙의 **적용 범위(제형)** — 무균 조문으로 완제 시설을 판정하면 안 된다. 신규 (2026-07-14).
 
-## ★★가장 심각한 구조적 결함이었다
+## 가장 심각한 구조적 결함이었다
 
 전수 감사에서 나왔다. 법규 코퍼스를 검색해 **직접 확인했다**:
 
@@ -19,7 +19,7 @@
       "**무균의약품 제조는** 적절한 청정실에서 수행되어야 하며, 이 청정실은 …"
 
 그리고 ADJ-005 의 조문은 **"A등급과 B등급 구역으로 연결되는 에어락"** 이라고 한정한다.
-내용고형제의 기본 등급은 **D** 다(1차 미팅 대표님). **A·B 구역이 아예 없다.**
+내용고형제의 기본 등급은 **D** 다(1차 미팅 대표님). **A, B 구역이 아예 없다.**
 그런데 `interlock_min_rank` 를 낮추는 순간 **조문에 없는 의무를 만들어내는 판정**이 된다.
 
 ## 왜 이게 우리가 가장 경계하는 실수인가
@@ -35,8 +35,8 @@
 규칙마다 `applies_to` 를 둔다. 시설의 `product_type` 과 안 맞으면 **판정하지 않는다**
 (0건이 아니라 **"적용 대상 아님"**).
 
-    별표1  → 무균의약품 (주사제·점안제 등)
-    별표17 → 완제의약품 (내용고형제·액제·연고 …) ★우리 기준 시설
+    별표1  → 무균의약품 (주사제, 점안제 등)
+    별표17 → 완제의약품 (내용고형제, 액제, 연고 …) 우리 기준 시설
     별표15 → 원료의약품
     안전에 관한 규칙 별표1 → **제형 무관** (모든 의약품 제조소)
 """
@@ -44,9 +44,9 @@ from __future__ import annotations
 
 # 제형 코드
 STERILE = "sterile"      # 무균 (별표1)
-FINISHED = "finished"    # 완제 (별표17)  ★내용고형제·액제·연고
+FINISHED = "finished"    # 완제 (별표17)  내용고형제, 액제, 연고
 API = "api"              # 원료 (별표15)
-ANY = "any"              # 제형 무관 (안전에 관한 규칙 별표1 · 자사 기준)
+ANY = "any"              # 제형 무관 (안전에 관한 규칙 별표1, 자사 기준)
 
 # 시설의 product_type 문자열 → 제형 코드
 _PRODUCT = {
@@ -73,12 +73,12 @@ def product_scope(product_type: str | None) -> str | None:
 def applies(rule_cfg: dict, facility_scope: str | None) -> bool:
     """이 규칙을 이 시설에 적용해도 되는가.
 
-    ★**모르면 적용하지 않는다.** 시설 제형을 모르는데 무균 조문을 들이대면 안 된다.
+    **모르면 적용하지 않는다.** 시설 제형을 모르는데 무균 조문을 들이대면 안 된다.
       다만 `applies_to` 가 아예 없는 규칙(내부 정합성 LBL 등)은 제형과 무관하다.
     """
     scopes = rule_cfg.get("applies_to")
     if not scopes:
-        return True                       # 제형과 무관한 규칙 (LBL · PRES-004 …)
+        return True                       # 제형과 무관한 규칙 (LBL, PRES-004 …)
     if ANY in scopes:
         return True
     if facility_scope is None:
@@ -92,7 +92,7 @@ def why_not(rule_cfg: dict, facility_scope: str | None,
     scopes = rule_cfg.get("applies_to") or []
     ko = {STERILE: "무균(별표1)", FINISHED: "완제(별표17)",
           API: "원료(별표15)", ANY: "제형 무관"}
-    want = " · ".join(ko.get(s, s) for s in scopes)
+    want = ", ".join(ko.get(s, s) for s in scopes)
     if facility_scope is None:
         return (f"시설의 제형(product_type)을 모른다 → 판정하지 않는다. "
                 f"이 규칙은 **{want}** 조문이다")

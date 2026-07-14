@@ -17,7 +17,7 @@ from gxpai.core.config import raw_dir
 for fac, pat in (("f_1ae3a266", "평면"), ("f_c783b865", "평면")):
     f = next(p for p in (raw_dir() / fac).iterdir() if pat in p.name)
     doc = ezdxf.readfile(str(f))
-    print(f"\n■ {fac}  {f.name}")
+    print(f"\n{fac}  {f.name}")
 
     # 문처럼 보이는 레이어
     lays = Counter()

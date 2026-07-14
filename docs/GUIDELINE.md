@@ -1,5 +1,5 @@
 # GXPAI 도면 자동화 엔진 — 프로덕션 가이드라인 v2.0
-### (다중 시설 확장 · 완전 제품화 로드맵 · 포트폴리오 마감 기준 포함)
+### (다중 시설 확장, 완전 제품화 로드맵, 포트폴리오 마감 기준 포함)
 
 > v1과의 차이: "가볍게"를 버린다. 기업 납품 기준으로 처음부터
 > **다중 시설 데이터 파이프라인 + 영속 저장소 + 재현성**을 갖춘다.
@@ -32,13 +32,13 @@
 그러나 코드 구조는 Stage 5까지 수용 가능해야 한다 (아래 B.2 아키텍처).
 
 ## A.2 절대 원칙 (전 단계 공통)
-1. **모든 것은 시설(facility) 단위로 격리·병렬**된다. 전역 상태 금지
+1. **모든 것은 시설(facility) 단위로 격리, 병렬**된다. 전역 상태 금지
 2. **원본 불변(immutable raw)**: 입력 DXF는 절대 수정하지 않는다. 모든 산출물은 파생물이며 재생성 가능
 3. **재현성**: 동일 입력 + 동일 코드 버전 = 동일 출력. 모든 산출물에 `pipeline_version`, `profile_version`, `source_hash` 스탬프
-4. **규칙·프로파일은 데이터**: 코드 배포 없이 YAML 추가만으로 신규 시설/규칙 대응
+4. **규칙, 프로파일은 데이터**: 코드 배포 없이 YAML 추가만으로 신규 시설/규칙 대응
 5. **검증 없는 완료 없음**: 태스크마다 Acceptance를 실제 실행. 실패한 채 "완료" 선언 금지
 6. **고객 도면 절대 커밋 금지**: `data/`, `output/` git-ignore. 테스트 fixture는 익명화 합성 도면만
-7. **모르면 QUESTIONS.md**: 단위·규칙·규정 근거는 추측하지 않고 기록 후 진행
+7. **모르면 QUESTIONS.md**: 단위, 규칙, 규정 근거는 추측하지 않고 기록 후 진행
 
 ---
 
@@ -73,7 +73,7 @@ gxpai-engine/
 │   ├── ingest/                    # Stage 1
 │   │   ├── unpack.py              # zip 해제 (cp949), 매니페스트 생성
 │   │   ├── inventory.py           # DXF 레이어/텍스트/블록 인벤토리
-│   │   ├── profile_wizard.py      # 인벤토리 → 프로파일 초안 자동 생성 ★
+│   │   ├── profile_wizard.py      # 인벤토리 → 프로파일 초안 자동 생성
 │   │   └── extractors/            # 도면종류별 추출기 (플러그인 구조)
 │   │       ├── base.py            # BaseExtractor: extract(dxf, profile) -> records
 │   │       ├── floorplan.py
@@ -94,7 +94,7 @@ gxpai-engine/
 │   ├── generate/                  # Stage 3
 │   │   ├── spec.py                # PlanSpec 스키마
 │   │   ├── csp.py                 # OR-Tools 배치
-│   │   ├── priors.py              # 레퍼런스 온톨로지 → 인접/면적 사전분포 ★
+│   │   ├── priors.py              # 레퍼런스 온톨로지 → 인접/면적 사전분포
 │   │   └── loop.py                # 생성→검증→재시도 루프
 │   ├── render/
 │   │   ├── svg.py
@@ -115,9 +115,9 @@ gxpai-engine/
 ├── raw/        (git-ignore)
 ├── artifacts/  (git-ignore)
 └── docs/
-    ├── ONBOARDING_NEW_FACILITY.md # 신규 zip 수령 시 절차서 ★
+    ├── ONBOARDING_NEW_FACILITY.md # 신규 zip 수령 시 절차서
     ├── RULE_AUTHORING.md
-    └── PORTFOLIO.md               # 포트폴리오 산출물 트래킹 ★
+    └── PORTFOLIO.md               # 포트폴리오 산출물 트래킹
 ```
 
 ## B.3 CLI 계약 (모든 기능은 CLI로 노출 — Stage 5 API의 전신)
@@ -148,7 +148,7 @@ room_adjacency(run_id, room_a, room_b, method)            -- method: polygon|nea
 pressure_relation(run_id, room_high, room_low, evidence_x, evidence_y, rotation)
 equipment(run_id, facility_id, name, room_id, x, y, method)
 ahu(run_id, facility_id, ahu_id, x, y, floor)
-violation(run_id, rule_id, severity, rooms JSONB, message, evidence JSONB, status) -- status: open|accepted|false_positive ★
+violation(run_id, rule_id, severity, rooms JSONB, message, evidence JSONB, status) -- status: open|accepted|false_positive
 question(id, facility_id, topic, body, status, answer)     -- QUESTIONS를 DB로 승격
 ```
 `violation.status`와 `room.review_status`가 중요하다: 컨설턴트 피드백(수정/승인)이
@@ -163,7 +163,7 @@ question(id, facility_id, topic, body, status, answer)     -- QUESTIONS를 DB로
 
 # PART C. 실행 로드맵 (Stage별 상세 태스크)
 
-각 태스크: **목표 / 방법 / 함정·폴백 / Acceptance(실행 확인)**. `docs/PROGRESS.md`에 체크 상태 유지.
+각 태스크: **목표 / 방법 / 함정, 폴백 / Acceptance(실행 확인)**. `docs/PROGRESS.md`에 체크 상태 유지.
 
 ## Stage 1 — Ingestion Platform (1.5주)
 
@@ -176,7 +176,7 @@ question(id, facility_id, topic, body, status, answer)     -- QUESTIONS를 DB로
   - Acceptance: `gxpai ingest <fid>` 후 DB room 테이블 = 기존 master_rooms.json과 111행 일치 (비교 스크립트 작성)
 - [ ] **T1.1.3** `profile wizard`: inventory 결과에서 방번호 패턴 후보(정규식 매칭율 상위), 라벨 레이어 후보
   (한글 TEXT 밀도 상위 레이어), 화살표 블록 후보(INSERT 반복 상위)를 스코어링해 YAML 초안 생성
-  - 이것이 "데이터 많아져도 그대로 작동"의 실체다. 사람은 초안을 검토·수정만 한다
+  - 이것이 "데이터 많아져도 그대로 작동"의 실체다. 사람은 초안을 검토, 수정만 한다
   - Acceptance: 현 시설에서 wizard 초안이 수동 프로파일과 핵심 필드 80% 일치
 
 ### S1.2 추출 완성 (3일)
@@ -219,7 +219,7 @@ question(id, facility_id, topic, body, status, answer)     -- QUESTIONS를 DB로
 - [ ] **T2.2.3** PRESSURE_OVER 도출: 화살표 rotation 벡터 → 걸친 인접 경계의 고압/저압 판정.
   boundary 없는 구간은 최근접 2방 근사 + `approx=true` 플래그
 - [ ] **T2.2.4** `ontology/queries.py` 표준 질의 8종: 압력 경로, 갱의 체인, AHU 서비스 방,
-  Grade 경계 통과 인접쌍, 시설 간 방유형 통계(★Stage 3 priors용) 등. **엔진은 이 모듈만 사용**
+  Grade 경계 통과 인접쌍, 시설 간 방유형 통계(Stage 3 priors용) 등. **엔진은 이 모듈만 사용**
   - Acceptance: Cypher 브라우저에서 3F 그래프 시각 확인 + PRESSURE_OVER 5개 PDF 화살표 대조
 
 ### S2.3 violations (4일)
@@ -239,7 +239,7 @@ question(id, facility_id, topic, body, status, answer)     -- QUESTIONS를 DB로
 
 ## Stage 3 — Generation Engine (2주, best-effort → 포트폴리오 핵심)
 
-- [ ] **T3.1** PlanSpec 스키마: 시설타입/방 목록(유형·요구면적·Grade)/생산규모/제약. YAML+JSON Schema 검증
+- [ ] **T3.1** PlanSpec 스키마: 시설타입/방 목록(유형, 요구면적, Grade)/생산규모/제약. YAML+JSON Schema 검증
 - [ ] **T3.2** priors.py: 레퍼런스 온톨로지(들)에서 통계 추출 —
   (방유형쌍→인접빈도), (방유형→면적분포), (Grade 전이→차압 방향 패턴), 갱의 체인 템플릿.
   **시설 N개를 모두 합산하는 구조로** (지금은 N=1)
@@ -295,7 +295,7 @@ question(id, facility_id, topic, body, status, answer)     -- QUESTIONS를 DB로
 5. 세션 종료: PROGRESS.md에 "다음 첫 태스크" 1줄
 
 ## D.3 미결 질문 시드 (question 테이블 초기값)
-TA 단위(CMH/Pa) / XREF 원본 / Grade DXF / 1F·2F 차압도 / 문 블록 컨벤션 /
+TA 단위(CMH/Pa) / XREF 원본 / Grade DXF / 1F, 2F 차압도 / 문 블록 컨벤션 /
 규칙 GMP 근거 컨설턴트 검수 / AutoCAD 실기 오픈 테스트 / (신규) 향후 수령 zip의 설계사 동일 여부
 (동일 설계사면 프로파일 재사용률 높음 — 온보딩 견적에 반영)
 

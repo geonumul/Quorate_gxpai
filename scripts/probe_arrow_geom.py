@@ -14,9 +14,9 @@ from gxpai.core.config import raw_dir
 doc = ezdxf.readfile(str(raw_dir() / "f_c783b865" / "차압흐름도.dxf"))
 for bname in ("Air Flow 15Pa", "Air Flow 10Pa", "zw$E99B", "Air Flow no차압"):
     if bname not in doc.blocks:
-        print(f"■ {bname!r}: 블록 정의 없음"); continue
+        print(f"{bname!r}: 블록 정의 없음"); continue
     blk = doc.blocks[bname]
-    print(f"\n■ 블록 {bname!r}")
+    print(f"\n블록 {bname!r}")
     for e in blk:
         t = e.dxftype()
         if t == "SOLID":

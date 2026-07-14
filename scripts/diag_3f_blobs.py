@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """3F 방들이 각각 **어떤 크기의 덩어리**에 빠지는지 센다.
 
-  · 덩어리가 거대하다  → 벽이 안 닫혀 여러 방이 하나로 뭉쳤다 (구멍이 있다)
-  · 덩어리가 0 이다    → 라벨이 벽/장비선 안에 갇혔다
-  · 몇 방이 같은 덩어리를 공유하나 → 그 방들 사이의 벽이 없다
+  - 덩어리가 거대하다  → 벽이 안 닫혀 여러 방이 하나로 뭉쳤다 (구멍이 있다)
+  - 덩어리가 0 이다    → 라벨이 벽/장비선 안에 갇혔다
+  - 몇 방이 같은 덩어리를 공유하나 → 그 방들 사이의 벽이 없다
 """
 import sys
 from collections import Counter, defaultdict
@@ -53,14 +53,14 @@ lab, n = ndimage.label(free)
 sizes = ndimage.sum(free, lab, range(1, n + 1))
 cell_m2 = (CELL / 1000.0) ** 2
 
-print(f"■ 격자 {w}x{h}  문 장벽 {nd}개  자유 덩어리 {n}개")
+print(f"격자 {w}x{h}  문 장벽 {nd}개  자유 덩어리 {n}개")
 blob_rooms = defaultdict(list)
 for no, nm, px, py in rooms:
     lid = int(lab[gy(py), gx(px)])
     area = sizes[lid - 1] * cell_m2 if lid > 0 else 0.0
     blob_rooms[lid].append((no, nm, area))
 
-print(f"\n■ 3F 방 {len(rooms)}개가 빠진 덩어리")
+print(f"\n3F 방 {len(rooms)}개가 빠진 덩어리")
 for lid, rr in sorted(blob_rooms.items(), key=lambda kv: -len(kv[1])):
     a = rr[0][2]
     tag = ("벽/장비선에 갇힘" if lid == 0 else

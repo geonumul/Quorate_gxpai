@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Grade / 절대압력(Pa) 추출기 회귀 시험.
 
-★가장 중요한 회귀: **옆방 라벨을 훔쳐오지 않는 것.**
+가장 중요한 회귀: **옆방 라벨을 훔쳐오지 않는 것.**
   PDF 작업에서 실제로 당했다 — 탈의실(5Pa)과 갱의실(15Pa)의 압력이 서로 뒤바뀌었다.
   라벨 블록은 [등급 / 이름 / 방번호 / 압력] 세로 4단이므로,
     - 등급은 방번호 **위**
@@ -65,7 +65,7 @@ def test_grade_방번호_위의_등급을_가져온다(monkeypatch):
 
 
 def test_grade_옆방_등급을_훔쳐오지_않는다(monkeypatch):
-    """★핵심 회귀. 두 방이 세로로 붙어 있어도 각자 자기 위의 등급을 가져야 한다."""
+    """핵심 회귀. 두 방이 세로로 붙어 있어도 각자 자기 위의 등급을 가져야 한다."""
     import gxpai.ingest.extractors.grades as G
     texts = [
         FakeText(0, 400, "(CNC)"),     # 방1 등급
@@ -88,7 +88,7 @@ def test_grade_등급표기_없으면_0건(monkeypatch):
 
 
 def test_grade_등급과_방번호가_다른_레이어에_있어도_붙는다(monkeypatch):
-    """★실제 도면에서 등급 0건이 나온 버그.
+    """실제 도면에서 등급 0건이 나온 버그.
 
     새 참고도면은 등급이 `Grade` 레이어, 방번호가 `ROOMNUMBER` 레이어에 있다.
     처음엔 **등급 레이어 하나에서 둘 다** 찾았다 → 방번호가 0개라 등급도 0건.
@@ -137,7 +137,7 @@ def test_pa_방번호_아래의_압력을_가져온다(monkeypatch):
 
 
 def test_pa_옆방_압력을_훔쳐오지_않는다(monkeypatch):
-    """★PDF 작업에서 실제로 당한 그 버그. 탈의실 5Pa 과 갱의실 15Pa 이 뒤바뀌었다."""
+    """PDF 작업에서 실제로 당한 그 버그. 탈의실 5Pa 과 갱의실 15Pa 이 뒤바뀌었다."""
     import gxpai.ingest.extractors.pressure_value as P
     texts = [
         FakeText(0, 400, "F2I01"),                  # 탈의실

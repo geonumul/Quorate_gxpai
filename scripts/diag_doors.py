@@ -36,7 +36,7 @@ for fac, pf, fn in (("f_c783b865", "ref_2f_2026", "평면도.dxf"),
         if h0 < 1 and h1 < 1: both0 += 1
         elif h0 == h1: tie += 1
         else: ok += 1
-    print(f"■ {fac}  호 {len(arcs)}개")
+    print(f"{fac}  호 {len(arcs)}개")
     print(f"   양끝 다 벽에서 멂  {both0:4d}  ← 벽 격자가 성기거나 호가 문이 아님")
     print(f"   양끝 벽 개수 같음   {tie:4d}  ← 양쪽 다 그린다(완화 적용)")
     print(f"   한쪽만 벽에 닿음    {ok:4d}  ← 정상 판별")

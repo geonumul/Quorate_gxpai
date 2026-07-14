@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""규칙 YAML 스키마·근거추적성 시험.
+"""규칙 YAML 스키마, 근거추적성 시험.
 
 모든 규칙이 RASE 분해(requirement/applicability/selection/exception) + 근거조항(clause) +
 동결게이트(review)를 갖추도록 강제한다. auditability 는 GMP 규제의 핵심가치라, 근거 없는

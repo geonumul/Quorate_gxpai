@@ -30,7 +30,7 @@ for depth in (0, 1, 2, 3, 5):
     print(f"  깊이 {depth}: 벽 선분 {len(segs):6d}   범위 {ext}")
 
 # 재귀를 켜면 어느 블록에서 벽이 새로 나오나
-print("\n■ ARCH-변경 레이어가 나오는 블록 (재귀)")
+print("\nARCH-변경 레이어가 나오는 블록 (재귀)")
 cnt = Counter()
 def walk(cont, name, d):
     for e in cont:
@@ -47,7 +47,7 @@ walk(doc.modelspace(), "(모델스페이스)", 0)
 for k, v in cnt.most_common(10):
     print(f"   {k!r}: {v}")
 
-print("\n■ 깊이별 build() 결과")
+print("\n깊이별 build() 결과")
 import gxpai.geometry.boundaries as BB
 _orig = BB._iter_wall_segments
 for depth in (2, 3, 5):

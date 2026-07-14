@@ -22,7 +22,7 @@ with connect() as c, c.cursor() as cur:
     cur.execute("SELECT room_no, name, plan_x, plan_y FROM room WHERE run_id=%s AND room_no=%s",
                 (rid, TARGET))
     no, nm, px, py = cur.fetchone()
-print(f"■ {no} {nm}  @({px:.0f},{py:.0f})  반경 {R:.0f}mm 안의 축-나란 선분")
+print(f"{no} {nm}  @({px:.0f},{py:.0f})  반경 {R:.0f}mm 안의 축-나란 선분")
 
 stats = defaultdict(lambda: [0, 0.0])
 

@@ -2,7 +2,7 @@
 """3F 가 왜 안 닫히나. **벽 레이어를 아직 다 못 찾았는지** 본다.
 
 방법: 3F 방 라벨이 있는 x구간 안에서, 레이어별로 선분 개수와 '벽스러움'을 센다.
-    벽스러움 = 짧고(문/창 아님) 축에 나란한(수평·수직) 선분의 비율.
+    벽스러움 = 짧고(문/창 아님) 축에 나란한(수평, 수직) 선분의 비율.
 """
 import math, sys
 from collections import defaultdict
@@ -23,7 +23,7 @@ with connect() as c, c.cursor() as cur:
     pts = cur.fetchall()
 x0, x1 = min(p[0] for p in pts), max(p[0] for p in pts)
 y0, y1 = min(p[1] for p in pts), max(p[1] for p in pts)
-print(f"■ 3F 방 라벨 {len(pts)}개  x {x0:.0f}~{x1:.0f}  y {y0:.0f}~{y1:.0f}")
+print(f"3F 방 라벨 {len(pts)}개  x {x0:.0f}~{x1:.0f}  y {y0:.0f}~{y1:.0f}")
 PAD = 20000
 
 stats = defaultdict(lambda: {"n": 0, "axis": 0, "len": 0.0})
@@ -68,7 +68,7 @@ def walk(cont, mat, plr, d):
 
 walk(doc.modelspace(), None, None, 0)
 
-print(f"\n■ 3F 구역 안 레이어별 선분 (축에 나란한 비율 = 벽스러움)")
+print(f"\n3F 구역 안 레이어별 선분 (축에 나란한 비율 = 벽스러움)")
 rows = sorted(stats.items(), key=lambda kv: -kv[1]["n"])[:22]
 for lay, s in rows:
     ratio = s["axis"] / s["n"] if s["n"] else 0

@@ -27,13 +27,13 @@ with connect() as c, c.cursor() as cur:
     rooms = cur.fetchall()
 
 TGT = {"F2I19", "F2I21", "F2I20", "F2I23", "F2I25", "F2I22"}
-print("■ 관심 방")
+print("관심 방")
 for r in rooms:
     if r[0] in TGT:
         a = f"{r[3]:.1f}㎡" if r[3] else "-"
         print(f"   {r[0]} {r[1]:22} 등급={r[2]:4} {a:8} @({r[4]:.0f},{r[5]:.0f})")
 
-print("\n■ 무균 구역 근처(y 43000~50000) 인터락 선과 가까운 방 3개")
+print("\n무균 구역 근처(y 43000~50000) 인터락 선과 가까운 방 3개")
 for pts in lines:
     mx = sum(p[0] for p in pts)/len(pts); my = sum(p[1] for p in pts)/len(pts)
     if not (43000 <= my <= 52000 and 300000 <= mx <= 310000):

@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """참고도면 벽 레이어를 제대로 잡는다. 면적이 **말이 되는지**로 판정한다.
 
-★51/51 은 '숫자가 나왔다'였지 '숫자가 맞다'가 아니었다.
+51/51 은 '숫자가 나왔다'였지 '숫자가 맞다'가 아니었다.
   전부 태우기(`*`)로 51방을 얻었지만 면적 합계가 505㎡ 뿐이었다
-  (무균 전실 0.8㎡ · 갱의실 1.6㎡ — 사람이 못 들어간다).
-  가구·치수·덕트선이 벽이 되어 방을 잘게 썰었다.
+  (무균 전실 0.8㎡, 갱의실 1.6㎡ — 사람이 못 들어간다).
+  가구, 치수, 덕트선이 벽이 되어 방을 잘게 썰었다.
 """
 import sys
 from pathlib import Path
@@ -45,6 +45,6 @@ for label, lays in SETS.items():
         tot = sum(r.area_m2 for r in res.rooms)
         by = {r.room_no: r.area_m2 for r in res.rooms}
         s = "  ".join(f"{SANITY[k].split()[0]}={by.get(k, 0):.0f}㎡" for k in SANITY)
-        print(f"▸ {label:<20} 문={'O' if doors else 'X'}  방 {len(res.rooms):2d}/{len(rooms)}  "
+        print(f"{label:<20} 문={'O' if doors else 'X'}  방 {len(res.rooms):2d}/{len(rooms)}  "
               f"합계 {tot:6,.0f}㎡  문인접 {len(res.door_adjacency):2d}")
         print(f"     {s}")

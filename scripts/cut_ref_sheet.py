@@ -3,7 +3,7 @@
 
 왜 필요한가
   참고도면(2).dxf 에는 **6장이 나란히** 들어 있다
-  (천정기구 · return풍도 · 차압흐름도 · 차압계 · 온습도계 · 인터락).
+  (천정기구, return풍도, 차압흐름도, 차압계, 온습도계, 인터락).
   그대로 ingest 하면 방 라벨이 **6배로 중복**된다(평면도 블록이 6번 배치돼 있으므로).
   엔진의 데이터 모델은 '도면 1개 = 파일 1개'다. → 시트를 잘라 파일로 만든다.
 
@@ -26,7 +26,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 SRC = Path(r"D:\14. Dev Project\Quorate\참고도면_원본_CAD\dxf\참고도면(2).dxf")
 PLAN_BLOCK = "2층평면도(260320)"
-# ★시트 간격보다 **작게** 잡아야 한다. 125,000 으로 뒀더니 옆 시트(차압계, x=371,500)가
+# 시트 간격보다 **작게** 잡아야 한다. 125,000 으로 뒀더니 옆 시트(차압계, x=371,500)가
 #   딸려와 방번호가 102개(51×2)로 두 배가 됐다. 실제 시트 간격은 106,026mm.
 SHEET_W = 100_000.0
 NAMES = ["천정기구배치", "return풍도", "차압흐름도", "차압계배치", "온습도계배치", "인터락배치"]
@@ -94,4 +94,4 @@ chk = ezdxf.readfile(str(out))
 nums = [t for _x, _y, t, _h in iter_label_texts(chk, ["ROOMNUMBER"])]
 grades = [t for _x, _y, t, _h in iter_label_texts(chk, ["Grade"])]
 pas = [t for _x, _y, t, _h in iter_label_texts(chk, ["차압"])]
-print(f"검증: 방번호 {len(nums)} · 등급 {len(grades)} · 차압 {len(pas)}")
+print(f"검증: 방번호 {len(nums)}, 등급 {len(grades)}, 차압 {len(pas)}")

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""★교차검증: 화살표 방향 ↔ 절대압력(Pa) 이 서로 맞는가.
+"""교차검증: 화살표 방향 ↔ 절대압력(Pa) 이 서로 맞는가.
 
 도면에 **두 가지 독립된 근거**가 있다.
   ① 차압 화살표(꼬리=고압 → 화살촉=저압)
@@ -40,11 +40,11 @@ for hno, hname, hpa, lno, lname, lpa, rot, ex, ey in rows:
         contra += 1
         bad.append((hno, hname, hpa, lno, lname, lpa, rot, ex, ey))
 
-print(f"■ {fac} 화살표 {len(rows)}개 (방 귀속 확정)")
+print(f"{fac} 화살표 {len(rows)}개 (방 귀속 확정)")
 print(f"  일치   {agree:3d}  (꼬리쪽 Pa > 화살촉쪽 Pa)")
 print(f"  동압   {equal:3d}  (양쪽 Pa 같음 — 판단 불가)")
 print(f"  압력없음 {unknown:3d}")
-print(f"  ★모순  {contra:3d}\n")
+print(f"  모순  {contra:3d}\n")
 for hno, hname, hpa, lno, lname, lpa, rot, ex, ey in bad:
     print(f"  {hno}({hname},{hpa:g}Pa) →화살표→ {lno}({lname},{lpa:g}Pa)   "
           f"rot={rot:g}  @({ex:.0f},{ey:.0f})")

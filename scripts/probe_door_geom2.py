@@ -15,7 +15,7 @@ cnt = Counter()
 for e in doc.modelspace().query("INSERT"):
     if e.dxf.layer in ("DOR", "DOOR", "DOOR-HID", "DOOR(HIDDEN)"):
         cnt[e.dxf.name] += 1
-print("■ 문 레이어에 놓인 블록")
+print("문 레이어에 놓인 블록")
 for k, v in cnt.most_common():
     print(f"   {k!r}: {v}")
 
@@ -23,7 +23,7 @@ for name in [k for k, _ in cnt.most_common(4)]:
     b = doc.blocks.get(name)
     if b is None:
         continue
-    print(f"\n■ 블록 {name!r} 로컬 기하")
+    print(f"\n블록 {name!r} 로컬 기하")
     for e in b:
         t = e.dxftype()
         if t == "ARC":

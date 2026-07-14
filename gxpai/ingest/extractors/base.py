@@ -4,7 +4,7 @@
 로드맵: T1.1.2
 계약: extract(doc, profile) -> list[Record]
   - doc: ezdxf.Document (원본 불변 - 절대 수정 금지, 원칙 A.2#2)
-  - profile: dict (레이어명·거리상수 등 모든 시설별 파라미터. 하드코딩 금지)
+  - profile: dict (레이어명, 거리상수 등 모든 시설별 파라미터. 하드코딩 금지)
 새 도면종류 지원 = 이 클래스를 상속한 파일 1개 추가. 코드 배포 없이 profile YAML로 시설 확장.
 """
 from __future__ import annotations

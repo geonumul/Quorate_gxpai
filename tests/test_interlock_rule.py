@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""ADJ-005 — **A·B 등급으로 연결되는 에어락에 인터락이 없다** 회귀 시험.
+"""ADJ-005 — **A, B 등급으로 연결되는 에어락에 인터락이 없다** 회귀 시험.
 
-## ★이 규칙이 이 파일의 존재 이유다: **구판을 인용했으면 규칙 자체를 못 만들었다**
+## 이 규칙이 이 파일의 존재 이유다: **구판을 인용했으면 규칙 자체를 못 만들었다**
 
-    구판 (식약처 게시판 · **인용금지**)
+    구판 (식약처 게시판, **인용금지**)
       "… 인터락 시스템(interlocking system) **또는** 시각적 및 청각적 …
        경보장치가 가동되어야 한다."          ← '또는' 이라 인터락이 필수가 아니다
 
@@ -29,7 +29,7 @@ CFG = {"enabled": True, "interlock_min_rank": 4,
 
 
 def test_B등급으로_이어지는_에어락에_인터락이_없으면_위반():
-    """★실제 도면에서 잡은 2건. `무균 전실` → `무균 복도(B)` 인데 인터락이 없다."""
+    """실제 도면에서 잡은 2건. `무균 전실` → `무균 복도(B)` 인데 인터락이 없다."""
     rooms = [RoomView(room_no="A1", name="무균 전실", grade="B", interlock_count=0),
              RoomView(room_no="C1", name="무균 복도", grade="B", interlock_count=0)]
     v = adj_005.evaluate([AdjPair("A1", "C1", via_door=True)], rooms, CFG)
@@ -45,7 +45,7 @@ def test_인터락이_있으면_위반_아님():
 
 
 def test_C_D_등급으로만_이어지면_인터락_의무가_아니다():
-    """★조문이 등급별로 갈라놨다. C·D 는 **최소한 시각경고시스템**이면 된다.
+    """조문이 등급별로 갈라놨다. C, D 는 **최소한 시각경고시스템**이면 된다.
 
     이걸 안 갈랐으면(구판대로 뭉뚱그렸으면) 모든 전실이 위반으로 찍혔을 것이다.
     """
@@ -63,17 +63,17 @@ def test_A등급으로_이어져도_위반():
 
 
 def test_에어락이_아닌_방은_대상이_아니다():
-    """조문은 '에어락·이송해치'에 대해 말한다. 그냥 붙어 있는 방은 대상이 아니다."""
+    """조문은 '에어락, 이송해치'에 대해 말한다. 그냥 붙어 있는 방은 대상이 아니다."""
     rooms = [RoomView(room_no="R1", name="조제실", grade="C", interlock_count=0),
              RoomView(room_no="C1", name="무균 복도", grade="B", interlock_count=0)]
     assert adj_005.evaluate([AdjPair("R1", "C1", via_door=True)], rooms, CFG) == []
 
 
 def test_인터락_도면이_없는_시설은_판정하지_않는다():
-    """★`interlock_count=None` = "인터락 정보가 없다" 이지 **"인터락이 없다"가 아니다.**
+    """`interlock_count=None` = "인터락 정보가 없다" 이지 **"인터락이 없다"가 아니다.**
 
     혼동하면 **전 에어락이 거짓 위반**이 된다.
-    (rels=[] · door_pairs=[] · has_gauge=false · interlock_count=0
+    (rels=[], door_pairs=[], has_gauge=false, interlock_count=0
      — **네 번째** 만나는 같은 함정이다. 매번 시험으로 막는다)
     """
     rooms = [RoomView(room_no="A1", name="무균 전실", grade="B"),          # None

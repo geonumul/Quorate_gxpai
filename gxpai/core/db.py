@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """PostgreSQL 커넥션 관리.
 
-로드맵: S1.1 · B.1 저장소
+로드맵: S1.1, B.1 저장소
 Neo4j 커넥션은 Stage 2(ontology)에서 추가. 지금은 PostgreSQL 만.
 """
 from __future__ import annotations

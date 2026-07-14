@@ -12,9 +12,9 @@
 
 왜 필요한가
   PRES-002(차압 기준 이탈)와 PRES-003(봉쇄 실패)이 이 값을 쓴다.
-  ★특히 PRES-003 은 "분진실 Pa > 복도 Pa 이면 봉쇄 실패"를 절대압력으로 직접 판정한다.
+  특히 PRES-003 은 "분진실 Pa > 복도 Pa 이면 봉쇄 실패"를 절대압력으로 직접 판정한다.
 
-★귀속 규칙 (PDF 작업에서 크게 당한 부분)
+귀속 규칙 (PDF 작업에서 크게 당한 부분)
   압력은 **자기 방번호 바로 아래**에 붙는다. 등급 태그를 기준으로 거리 매칭하면
   **옆방 압력을 훔쳐온다**(실제로 탈의실 5Pa 과 갱의실 15Pa 이 서로 뒤바뀌었다).
   그래서 여기서는 **방번호를 축**으로 삼고, **아래쪽을 우선**한다.
@@ -80,7 +80,7 @@ class PressureValueExtractor(BaseExtractor):
             if num_re:
                 m = num_re.match(t)
                 if m:
-                    # ★캡처 그룹이 없는 정규식이면 `m.group(1)` 이 **IndexError 로 죽는다.**
+                    # 캡처 그룹이 없는 정규식이면 `m.group(1)` 이 **IndexError 로 죽는다.**
                     #   pressure.py 는 이걸 방어해 뒀는데 **여기만 뚫려 있었다.**
                     #   프로파일에 `room_no_regex: '^\d{4}$'`(그룹 없음)라고 쓰면 터진다.
                     numbers.append((x, y, m.group(1) if m.groups() else t))

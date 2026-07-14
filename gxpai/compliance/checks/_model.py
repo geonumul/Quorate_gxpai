@@ -9,7 +9,7 @@
 할 수 있다.
 
 각 check 모듈은 두 층으로 나뉜다.
-  - evaluate(...) : 순수 함수. RoomView 등 평범한 객체만 받는다(DB·psycopg 의존 없음).
+  - evaluate(...) : 순수 함수. RoomView 등 평범한 객체만 받는다(DB, psycopg 의존 없음).
   - run(cur, ...) : 얇은 DB 어댑터. 행을 읽어 evaluate 에 넘긴다.
 """
 from __future__ import annotations
@@ -32,7 +32,7 @@ class RoomView:
     grade: str | None = None
     plan_x: float | None = None
     plan_y: float | None = None
-    # ★차압도에서의 좌표. **'차압도에 존재하는가'는 이름이 아니라 좌표로 판단한다.**
+    # 차압도에서의 좌표. **'차압도에 존재하는가'는 이름이 아니라 좌표로 판단한다.**
     #   예전엔 pressure_name 유무로 판단했다가, 차압도에 방번호만 있고 이름이 없는 도면
     #   (참고도면)에서 51개 방을 전부 '차압도에 없음'으로 찍었다 — 거짓 위반.
     pres_x: float | None = None
@@ -50,7 +50,7 @@ class RoomView:
     # 급기 풍량(CMH). migration 012. **방 경계 안**에 들어가는 급기구만 합산한 값이다.
     airflow_cmh: float | None = None
     area_m2: float | None = None
-    # ★등급이 **어디서 왔나** (migration 013): drawing / zone / product_default
+    # 등급이 **어디서 왔나** (migration 013): drawing / zone / product_default
     #   `product_default` 는 **추정**이다(제형에서 온 기본값). 도면에 적힌 등급과 **같이 취급하면 안 된다.**
     #   규칙이 근거(evidence)에 이 값을 실어 보내야 검수자가 구분할 수 있다.
     grade_source: str | None = None
@@ -113,7 +113,7 @@ def load_rooms(cur, run_id: str) -> list[RoomView]:
                  pressure_pa=r[7], regime=r[8], regime_source=r[9],
                  interlock_count=r[10], pres_x=r[11],
                  airflow_cmh=r[12], area_m2=r[13],
-                 # ★등급 문자열 정규화 — `(D)` 대신 ` d` 나 `D ` 가 오면 rank 사전에 없어
+                 # 등급 문자열 정규화 — `(D)` 대신 ` d` 나 `D ` 가 오면 rank 사전에 없어
                  #   등급 규칙 6개가 **전부 조용히 0건**을 냈다. 한 곳에서 정규화한다.
                  grade_source=r[14])
         for r in cur.fetchall()

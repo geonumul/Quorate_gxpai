@@ -16,7 +16,7 @@ from gxpai.core.config import raw_dir
 from gxpai.core.db import connect
 
 doc = ezdxf.readfile(str(raw_dir()/"f_c783b865"/"인터락도.dxf"))
-# ★인터락은 **2점 선**이다 — 에어락의 두 문을 잇는 연결선("이 둘은 동시에 열리면 안 된다").
+# 인터락은 **2점 선**이다 — 에어락의 두 문을 잇는 연결선("이 둘은 동시에 열리면 안 된다").
 #   선의 **중점**이 곧 그 에어락 방이다.
 locks = []
 for e in doc.modelspace():
@@ -28,7 +28,7 @@ for e in doc.modelspace():
     mx = sum(q[0] for q in pts) / len(pts)
     my = sum(q[1] for q in pts) / len(pts)
     locks.append((mx, my, "line"))
-print(f"■ 인터락 연결선 {len(locks)}개 (중점으로 방에 귀속)")
+print(f"인터락 연결선 {len(locks)}개 (중점으로 방에 귀속)")
 
 with connect() as c, c.cursor() as cur:
     cur.execute("SELECT id FROM run WHERE facility_id='f_c783b865' ORDER BY started_at DESC LIMIT 1")
@@ -53,12 +53,12 @@ for lx, ly, _ in locks:
         lock_of[no] = lock_of.get(no, 0) + 1
 
 AIRLOCK = ("전실", "에어락", "갱의", "탈의")
-print(f"\n■ 인터락이 붙은 방 {len(lock_of)}개")
+print(f"\n인터락이 붙은 방 {len(lock_of)}개")
 for no, n in sorted(lock_of.items(), key=lambda kv: kv[0] or ""):
     r = by[no]
     print(f"   {no} {r[1]:22} 등급={r[2] or '-':4} × {n}")
 
-print("\n■ 에어락/전실 중 **A·B 등급 방과 문으로 이어진** 것 — 인터락 필수")
+print("\n에어락/전실 중 **A, B 등급 방과 문으로 이어진** 것 — 인터락 필수")
 RANK = {"A":5,"B":4,"C":3,"D":2,"CNC":1,"NC":0}
 for no, r in sorted(by.items(), key=lambda kv: kv[0] or ""):
     if not any(w in (r[1] or "") for w in AIRLOCK):
@@ -66,6 +66,6 @@ for no, r in sorted(by.items(), key=lambda kv: kv[0] or ""):
     nb = [b if a == no else a for a, b in doors if no in (a, b)]
     hi = [x for x in nb if x in by and by[x][2] in ("A", "B")]
     if hi:
-        mark = "인터락 O" if no in lock_of else "★인터락 없음"
+        mark = "인터락 O" if no in lock_of else "인터락 없음"
         names = ", ".join(f"{x}({by[x][1]},{by[x][2]})" for x in hi)
         print(f"   {no} {r[1]:20} → {names}   {mark}")

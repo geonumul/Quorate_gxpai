@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Grade(청정등급) 추출기 — **텍스트 라벨 기반. 2026-07-13 재작성.**
 
-★무엇이 바뀌었나
+무엇이 바뀌었나
   예전 스켈레톤은 **해치(HATCH) 색상 → 등급** 매핑을 가정했다. 실제 도면은 그렇지 않았다.
   등급은 **방 라벨 블록 안의 텍스트 `(D)` `(C)` `(B)` `(CNC)` `(NC)`** 로 적힌다.
   (새 참고도면 DXF 확인: 블록 `2층평면도(260320)` 안의 TEXT, 등급 49개)
@@ -14,7 +14,7 @@
 
 방법
   등급 텍스트를 찾아 **가장 가까운 방번호**에 귀속시킨다.
-  ★방번호를 축으로 삼는다(등급이 아니라). 등급 라벨은 방번호 **위쪽**에 붙으므로
+  방번호를 축으로 삼는다(등급이 아니라). 등급 라벨은 방번호 **위쪽**에 붙으므로
     '위쪽 우선' 가중치를 준다. 이 좌표 규칙을 안 쓰면 옆방 등급을 훔쳐온다(PDF 작업에서 실제로 당했다).
 
 한계(정직)
@@ -32,8 +32,8 @@ import re
 from ..dxftext import iter_label_texts
 from .base import BaseExtractor, Record
 
-# (D) (C) (B) (A) (CNC) (NC) — 공백·전각 괄호 허용
-# 등급 표기. 사무소마다 다르다(`(D)` · `D급` · `Grade D` …)
+# (D) (C) (B) (A) (CNC) (NC) — 공백, 전각 괄호 허용
+# 등급 표기. 사무소마다 다르다(`(D)`, `D급`, `Grade D` …)
 # → 프로파일 `grades.grade_regex` 로 덮어쓸 수 있다. 하드코딩하면 다음 사무소에서 0건이 된다.
 GRADE_RE = re.compile(r"^[\(（]\s*(A|B|C|D|CNC|NC)\s*[\)）]$", re.I)
 
@@ -66,7 +66,7 @@ class GradeExtractor(BaseExtractor):
         max_d = float(gcfg.get("max_match_dist_mm", DEFAULT_MAX_D))
         below_penalty = float(gcfg.get("below_penalty", DEFAULT_BELOW_PENALTY))
 
-        # ★등급과 방번호는 **다른 레이어**에 있다 (Grade / ROOMNUMBER).
+        # 등급과 방번호는 **다른 레이어**에 있다 (Grade / ROOMNUMBER).
         #   처음엔 등급 레이어 하나에서 둘 다 찾았다 → 방번호가 0개라 등급도 0건이 나왔다.
         #   (압력 추출기는 처음부터 레이어를 나눠 읽어서 44건이 잘 나왔다. 같은 실수를 여기서 했다.)
         num_layers = fp.get("room_layers") or layers

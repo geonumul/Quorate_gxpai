@@ -8,7 +8,7 @@ from gxpai.core.db import connect
 
 BAD = []
 def chk(ok, msg):
-    print(f"   {'✔' if ok else '✘'} {msg}")
+    print(f"   {'' if ok else '✘'} {msg}")
     if not ok:
         BAD.append(msg)
 
@@ -16,7 +16,7 @@ with connect() as c, c.cursor() as cur:
     for fac in ("f_1ae3a266", "f_c783b865"):
         cur.execute("SELECT id FROM run WHERE facility_id=%s ORDER BY started_at DESC LIMIT 1", (fac,))
         rid = cur.fetchone()[0]
-        print(f"\n■ {fac}")
+        print(f"\n{fac}")
 
         # 1) 압력 유형이 NULL 인 방이 있나 (전부 채워져야 한다)
         cur.execute("SELECT count(*) FROM room WHERE run_id=%s AND regime IS NULL", (rid,))
@@ -37,7 +37,7 @@ with connect() as c, c.cursor() as cur:
                         WHERE run_id=%s AND room_high=room_low AND room_high IS NOT NULL""", (rid,))
         chk(cur.fetchone()[0] == 0, "고압=저압인 화살표가 없다")
 
-        # 5) 면적이 말이 되나 (0.3㎡ 미만 · 500㎡ 초과)
+        # 5) 면적이 말이 되나 (0.3㎡ 미만, 500㎡ 초과)
         cur.execute("""SELECT count(*) FROM room WHERE run_id=%s
                         AND area_m2 IS NOT NULL AND (area_m2 < 0.3 OR area_m2 > 500)""", (rid,))
         n = cur.fetchone()[0]
@@ -65,6 +65,6 @@ with connect() as c, c.cursor() as cur:
         chk(not leaked, f"검수 안 된 규칙이 DB에 적재되지 않았다 (샌 것: {leaked})")
 
 print("\n" + "="*60)
-print(f"■ 감사 결과: {'모두 통과' if not BAD else f'★{len(BAD)}건 실패'}")
+print(f"감사 결과: {'모두 통과' if not BAD else f'{len(BAD)}건 실패'}")
 for b in BAD:
     print("   ✘", b)

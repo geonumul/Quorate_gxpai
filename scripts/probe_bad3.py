@@ -22,7 +22,7 @@ with connect() as c, c.cursor() as cur:
                     (run_id, bx, by))
         hd, lay, sp, rot = cur.fetchone()
         hx, hy = math.cos(math.radians(hd)), math.sin(math.radians(hd))
-        print(f"\n■ 화살표 @({bx},{by})  화살촉 {hd:g}°  레이어={lay!r} 설정={sp}Pa (rot={rot:g})")
+        print(f"\n화살표 @({bx},{by})  화살촉 {hd:g}°  레이어={lay!r} 설정={sp}Pa (rot={rot:g})")
         cand = []
         for rno, rn, pa, rx, ry in rooms:
             dx, dy = rx - bx, ry - by

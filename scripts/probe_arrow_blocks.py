@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""★모순 화살표 9개의 정체: 레이어가 다른가? 스케일이 음수인가? 주변에 더 가까운 방이 있나?
+"""모순 화살표 9개의 정체: 레이어가 다른가? 스케일이 음수인가? 주변에 더 가까운 방이 있나?
 
 레이어 이름 자체가 차압 설정값이다: 'Air Flow 10Pa' / 'Air Flow 15Pa' / 'Air Flow no차압'.
 """
@@ -29,12 +29,12 @@ msp = doc.modelspace()
 BAD = [(303638,66455),(302252,66496),(299079,56518),(301831,58830),(302614,54745),
        (300570,46126),(307831,38284),(304839,45452),(304804,33023)]
 
-print("■ 화살표 레이어별 개수")
+print("화살표 레이어별 개수")
 c = Counter(e.dxf.layer for e in msp.query("INSERT") if e.dxf.layer in ALAY)
 for k, n in c.most_common():
     print(f"   {k!r}: {n}")
 
-print("\n■ 모순 화살표 9개의 레이어·스케일")
+print("\n모순 화살표 9개의 레이어, 스케일")
 for e in msp.query("INSERT"):
     if e.dxf.layer not in ALAY:
         continue
@@ -45,7 +45,7 @@ for e in msp.query("INSERT"):
             print(f"   @({bx},{by})  레이어={e.dxf.layer!r}  블록={e.dxf.name!r} "
                   f"rot={e.dxf.rotation:g}  xs={xs:g} ys={ys:g}")
 
-print("\n■ 첫 모순 화살표 @(303638,66455) 주변 8m 내 방 (가까운 순)")
+print("\n첫 모순 화살표 @(303638,66455) 주변 8m 내 방 (가까운 순)")
 near = sorted(((math.hypot(rx-303638, ry-66455), rno, rn, pa, rx, ry)
                for rno, rn, pa, rx, ry in rooms), key=lambda t: t[0])
 for d, rno, rn, pa, rx, ry in near[:6]:

@@ -16,7 +16,7 @@ from gxpai.core.db import connect
 doc = ezdxf.readfile(str(next(p for p in (raw_dir()/"f_1ae3a266").iterdir() if "평면" in p.name)))
 
 # 시트 제목 텍스트
-print("■ 시트 제목처럼 보이는 텍스트 (x 순)")
+print("시트 제목처럼 보이는 텍스트 (x 순)")
 titles = []
 for e in doc.modelspace():
     if e.dxftype() in ("TEXT", "MTEXT"):
@@ -37,15 +37,15 @@ with connect() as c, c.cursor() as cur:
 b = defaultdict(lambda: Counter())
 for no, x in rows:
     b[int(x // 50000) * 50] [no[0]] += 1
-print("\n■ 방번호 라벨의 x 분포 (5만mm 구간별, 3xxx / 4xxx)")
+print("\n방번호 라벨의 x 분포 (5만mm 구간별, 3xxx / 4xxx)")
 for k in sorted(b):
     print(f"   x {k:4d}k~ : 3F {b[k]['3']:3d}  4F {b[k]['4']:3d}")
 
-# 벽(하니컴패널·B-WAL)의 x 분포
+# 벽(하니컴패널, B-WAL)의 x 분포
 wc = Counter()
 for e in doc.modelspace():
     if e.dxf.layer in ("하니컴패널", "B-WAL") and e.dxftype() == "LINE":
         wc[int(e.dxf.start.x // 50000) * 50] += 1
-print("\n■ 벽(하니컴패널·B-WAL) 선분의 x 분포")
+print("\n벽(하니컴패널, B-WAL) 선분의 x 분포")
 for k in sorted(wc):
     print(f"   x {k:4d}k~ : {wc[k]}")

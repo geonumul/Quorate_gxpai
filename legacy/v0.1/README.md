@@ -7,8 +7,8 @@
 
 | 스크립트 | 하는 일 | 옮겨진 위치 |
 |---|---|---|
-| `extract_rooms.py`    | 평면도에서 방 번호·이름·위치 추출 | `gxpai/ingest/extractors/floorplan.py` |
-| `extract_pressure.py` | 차압 도면에서 기압·화살표 추출 | `gxpai/ingest/extractors/pressure.py` |
+| `extract_rooms.py`    | 평면도에서 방 번호, 이름, 위치 추출 | `gxpai/ingest/extractors/floorplan.py` |
+| `extract_pressure.py` | 차압 도면에서 기압, 화살표 추출 | `gxpai/ingest/extractors/pressure.py` |
 | `merge_dataset.py`    | 위 둘을 방 번호로 병합 | `gxpai/core/run.py` |
 
 ## 회귀 기준

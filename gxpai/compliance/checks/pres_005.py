@@ -8,26 +8,26 @@
        오염관리전략에서 차압에 대한 설정값 및 중요도를 고려하여야 한다.
        중요하다고 확인된 차압은 **연속적으로 모니터하고 기록**하여야 한다."
 
-    (법제처 HWP · 고시 XML · 식약처 PDF 대조 확인)
+    (법제처 HWP, 고시 XML, 식약처 PDF 대조 확인)
 
-차압을 설정만 하고 **재지 않으면 유지·기록할 방법이 없다.** 그래서 차압계가 의무다.
+차압을 설정만 하고 **재지 않으면 유지, 기록할 방법이 없다.** 그래서 차압계가 의무다.
 
 ## 도면이 이미 답을 갖고 있다
 
     `Air Flow 10Pa` / `Air Flow 15Pa`   차압이 **설정된** 구간
     `Air Flow no차압`                   차압계 설치가 **요구되지 않는** 위치 (도면 범례 3번)
-    `차압계-아날로그`(21) · `차압계-디지털`(7)   **실제로 설치된 차압계**
+    `차압계-아날로그`(21), `차압계-디지털`(7)   **실제로 설치된 차압계**
 
-★우리는 이걸 통째로 못 보고 있었다 — 참고도면은 같은 평면도에 겹을 얹은 **시트가 6장**인데
+우리는 이걸 통째로 못 보고 있었다 — 참고도면은 같은 평면도에 겹을 얹은 **시트가 6장**인데
   우리는 **시트 2(차압흐름도)만** 잘라 쓰고 있었다. 차압계는 시트 3에 있다.
 
 ## 범위를 좁히지 않으면 **거짓 위반 6건**이 난다 (실제로 그럴 뻔했다)
 
 차압이 설정됐는데 차압계가 없는 구간이 6개 있었다. 그런데 파 보니 **전부 CNC↔NC** 였다 —
-탈의실·갱의실·전실, 즉 갱의 체인 입구다.
+탈의실, 갱의실, 전실, 즉 갱의 체인 입구다.
 
     조문은 "**청정실** 및 … 주변구역 사이"라고 한다.
-    CNC(관리되나 등급 미분류)·NC(미분류)는 **청정실이 아니다.**
+    CNC(관리되나 등급 미분류), NC(미분류)는 **청정실이 아니다.**
 
 → **한쪽 이상이 청정실(등급 D 이상)인 구간만** 판정한다.
    그러고 나니 위반 0건 — **설계가 맞았다.**
@@ -47,7 +47,7 @@ def evaluate(rels: list[PressureRel], rooms: list[RoomView], cfg: dict) -> list[
 
     view = {r.room_no: r for r in rooms if r.room_no}
 
-    # ★차압계 도면이 없는 시설이면 **판정하지 않는다.**
+    # 차압계 도면이 없는 시설이면 **판정하지 않는다.**
     #   has_gauge 가 전부 NULL = "차압계 정보가 없다"이지 "차압계가 없다"가 아니다.
     #   혼동하면 전 구간이 거짓 위반이 된다. (rels=[] vs None 함정과 같은 종류다)
     if not any(r.has_gauge is not None for r in rels):
@@ -67,8 +67,8 @@ def evaluate(rels: list[PressureRel], rooms: list[RoomView], cfg: dict) -> list[
         if not hi or not lo:
             continue
 
-        # ★조문의 범위: **청정실**과 주변구역 사이. CNC·NC 끼리는 대상이 아니다.
-        # ★모르는 등급 문자열(`Grade D`·`d`·`D `)이 오면 `rank.get` 이 None 을 돌려
+        # 조문의 범위: **청정실**과 주변구역 사이. CNC, NC 끼리는 대상이 아니다.
+        # 모르는 등급 문자열(`Grade D`, `d`, `D `)이 오면 `rank.get` 이 None 을 돌려
         #   `max([None, 2])` 에서 **TypeError 로 엔진이 죽었다.** 다른 규칙은 방어했는데 여기만 뚫려 있었다.
         ranks = [rank[x.grade] for x in (hi, lo) if x.grade and x.grade in rank]
         if not ranks or max(ranks) < clean_min:
@@ -85,7 +85,7 @@ def evaluate(rels: list[PressureRel], rooms: list[RoomView], cfg: dict) -> list[
             "message": (
                 f"차압계 없음: {hi.room_no}({hi.name}, 등급 {hi.grade}) ↔ "
                 f"{lo.room_no}({lo.name}, 등급 {lo.grade}) 구간은 차압 {r.setpoint_pa:g}Pa 로 "
-                f"**설정**돼 있으나 **차압계가 없다**. 설정만 하고 재지 않으면 유지·기록할 수 없다"),
+                f"**설정**돼 있으나 **차압계가 없다**. 설정만 하고 재지 않으면 유지, 기록할 수 없다"),
             "evidence": {
                 "room_high": hi.room_no, "room_low": lo.room_no,
                 "grades": [hi.grade, lo.grade],
@@ -96,7 +96,7 @@ def evaluate(rels: list[PressureRel], rooms: list[RoomView], cfg: dict) -> list[
                        "설치되어야 한다. … 중요하다고 확인된 차압은 연속적으로 모니터하고 "
                        "기록하여야 한다"),
                 "적용범위": ("**한쪽 이상이 청정실(등급 D 이상)** 인 구간만. "
-                         "CNC·NC 끼리(탈의실·갱의실 등)는 조문이 말하는 '청정실'이 아니다"),
+                         "CNC, NC 끼리(탈의실, 갱의실 등)는 조문이 말하는 '청정실'이 아니다"),
                 "판단": "보류. 발주처 확인 필요 (차압계 도면에 안 그려졌을 뿐일 수도 있다)",
             },
         })

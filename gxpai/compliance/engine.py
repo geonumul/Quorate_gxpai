@@ -35,7 +35,7 @@ def _latest_run(cur, facility_id: str) -> str | None:
 def validate(facility_id: str, ruleset: str = "gmp_osd_v1", run_id: str | None = None) -> dict:
     """활성 규칙을 실행해 violation 테이블에 적재하고 요약을 반환.
 
-    ★★게이트가 **두 겹**이다. 예전엔 둘 다 없었다.
+    게이트가 **두 겹**이다. 예전엔 둘 다 없었다.
 
     ① **동결 게이트** (`review`)
        규칙 YAML 머리말이 *"unreviewed = 게이트로 잠금"* 이라고 선언해 놓고,
@@ -45,8 +45,8 @@ def validate(facility_id: str, ruleset: str = "gmp_osd_v1", run_id: str | None =
        → 엔진이 직접 막는다.
 
     ② **제형 게이트** (`applies_to`)
-       ★가장 심각했던 결함. 법규 코퍼스를 검색해 확인했다 —
-       **별표17(완제)에 '청정등급'·'차압계'·'인터락' 조문이 0건**인데,
+       가장 심각했던 결함. 법규 코퍼스를 검색해 확인했다 —
+       **별표17(완제)에 '청정등급', '차압계', '인터락' 조문이 0건**인데,
        우리 규칙 5종이 **별표1(무균)** 조문으로 **완제 시설(내용고형제)** 을 판정하고 있었다.
        ADJ-002 의 조문은 아예 "**무균의약품 제조는**…" 으로 시작한다.
        → 시설의 제형과 규칙의 제형이 안 맞으면 **판정하지 않는다.**
@@ -110,7 +110,7 @@ def validate(facility_id: str, ruleset: str = "gmp_osd_v1", run_id: str | None =
                 continue
 
             found = mod.run(cur, rid, facility_id, rule) or []
-            # 근거 추적성(audit trail): 위반이 어느 조항·요구에서 왔는지를 위반 레코드에 함께 새긴다.
+            # 근거 추적성(audit trail): 위반이 어느 조항, 요구에서 왔는지를 위반 레코드에 함께 새긴다.
             # 규칙 YAML 이 나중에 바뀌어도 판정 당시의 근거가 보존된다.
             prov = {
                 "clause": rule.get("clause"),

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""문이 기둥·벽에 걸려 못 열리는지 — **실제 도면에 돌려 본다.**
+"""문이 기둥, 벽에 걸려 못 열리는지 — **실제 도면에 돌려 본다.**
 
 대표님(1차 미팅): "여기 기둥이 있어 — 그러면 문을 못 열잖아요.
   '얘는 접촉이 돼서 문을 못 연다'고 메시지를 띄운다든지만 해주면 사람들이 보고 고치죠"
@@ -22,8 +22,8 @@ f = next(p for p in d.iterdir() if "평면" in p.name)
 doc = ezdxf.readfile(str(f))
 cell = float(bc["cell_mm"])
 
-# ★★장애물 격자에 **문 레이어를 넣으면 안 된다.**
-#   문짝·문틀 선이 그대로 장애물이 되어 **문이 자기 자신에 막힌다.**
+# 장애물 격자에 **문 레이어를 넣으면 안 된다.**
+#   문짝, 문틀 선이 그대로 장애물이 되어 **문이 자기 자신에 막힌다.**
 #   처음에 그렇게 했더니 589개가 "0°만 열림"으로 나왔다 — 말이 안 되는 값이라 바로 들통났다.
 segs = list(B._iter_wall_segments(doc, list(bc["wall_layers"]),
                                   skip_blocks=bc.get("skip_blocks")))
@@ -34,9 +34,9 @@ walls = np.zeros((h, w), np.uint8)
 for a, b, cx, cy in segs:
     B._draw_line(walls, int((a-minx)/cell), int((b-miny)/cell), int((cx-minx)/cell), int((cy-miny)/cell))
 
-print(f"■ {fac}  격자 {w}x{h}  벽 선분 {len(segs):,}")
+print(f"{fac}  격자 {w}x{h}  벽 선분 {len(segs):,}")
 res = check(doc, prof, walls, minx, miny, cell, lambda x, y: None)
-print(f"\n■ 90° 못 여는 문: {len(res)}개")
+print(f"\n90° 못 여는 문: {len(res)}개")
 for r in sorted(res, key=lambda r: r['open_deg'])[:15]:
     print(f"   {r['open_deg']:>3}°만 열림  경첩@({r['x']:.0f},{r['y']:.0f}) r={r['radius_mm']}mm"
           f"  막힌 곳@({r['hit_x']:.0f},{r['hit_y']:.0f})")

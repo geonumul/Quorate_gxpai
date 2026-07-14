@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""추출기 공통 헬퍼 (평면도·차압도가 함께 쓰는 로직)."""
+"""추출기 공통 헬퍼 (평면도, 차압도가 함께 쓰는 로직)."""
 from __future__ import annotations
 
 import math
@@ -7,7 +7,7 @@ import re
 
 
 def merge_multiline_names(names, max_dy, max_dx):
-    """여러 줄로 쪼개진 방 이름을 하나로 병합 (S-3: 평면도·차압도 공통 적용).
+    """여러 줄로 쪼개진 방 이름을 하나로 병합 (S-3: 평면도, 차압도 공통 적용).
 
     names: (x, y, text) 리스트. 바로 아래(dy<=max_dy, dx<=max_dx) 텍스트를 이어붙인다.
     """

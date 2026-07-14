@@ -54,16 +54,16 @@ for e in blk:
 print(f"방번호 라벨 {len(nums)}개")
 
 # ── 평면도 기하를 **재귀적으로** 펼쳐 임시 문서에 굽는다 ──────────
-# ★블록이 3단 중첩이다: 2층평면도(260320) → zw$F5F8 → 2층 평면 변경후(벽 97k)
+# 블록이 3단 중첩이다: 2층평면도(260320) → zw$F5F8 → 2층 평면 변경후(벽 97k)
 #   그리고 **안쪽 엔티티가 전부 레이어 '0'** 이다(블록이 INSERT 의 레이어를 상속).
 #   → 레이어로 벽만 고를 수 없다. 일단 선/호를 전부 장벽으로 태우고 결과를 눈으로 본다.
-#     (가구·치수선까지 장벽이 되면 방이 잘게 쪼개질 수 있다 — 그때 걸러낸다.)
+#     (가구, 치수선까지 장벽이 되면 방이 잘게 쪼개질 수 있다 — 그때 걸러낸다.)
 tmp = ezdxf.new()
 tsp = tmp.modelspace()
 n_seg = 0
 
 
-# ★방 라벨은 **네모 박스 안에** 그려져 있다(블록 B20260107094054, 51개 × 5선).
+# 방 라벨은 **네모 박스 안에** 그려져 있다(블록 B20260107094054, 51개 × 5선).
 #   그 박스를 장벽으로 태우면 flood-fill 이 **라벨 박스 안에 갇힌다**(면적 0.7㎡).
 #   실제로 51개 방이 전부 '면적 과소'로 실패했다. → 라벨 박스 블록은 장벽에서 제외한다.
 SKIP_BLOCKS = {"B20260107094054"}
@@ -132,12 +132,12 @@ PROFILE = {"boundaries": {
 }}
 
 res = boundaries.build(tmp, nums, PROFILE)
-print(f"\n■ 결과: 방 {len(res.rooms)}개 / 실패 {len(res.failed)}개 / 인접 {len(res.adjacency)}쌍")
+print(f"\n결과: 방 {len(res.rooms)}개 / 실패 {len(res.failed)}개 / 인접 {len(res.adjacency)}쌍")
 print(f"  격자 {res.cell_mm}mm\n")
 
 for r in sorted(res.rooms, key=lambda r: -r.area_m2)[:12]:
     print(f"   {r.room_no:8s} {r.area_m2:8.1f} ㎡")
-print("\n■ 실패 사유 (상위 8)")
+print("\n실패 사유 (상위 8)")
 for f in res.failed[:8]:
     print("   ", f)
 
@@ -181,7 +181,7 @@ for n in nums:
 
 ax.set_aspect("equal")
 ax.axis("off")
-# ★내 임시폴더 절대경로가 박혀 있었다 — 다른 기계에선 안 돈다.
+# 내 임시폴더 절대경로가 박혀 있었다 — 다른 기계에선 안 돈다.
 p = Path("artifacts") / "boundaries_check.png"
 p.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(p, bbox_inches="tight", facecolor="white")

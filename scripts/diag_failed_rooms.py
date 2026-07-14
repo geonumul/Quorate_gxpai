@@ -5,7 +5,7 @@
   A) 벽이 실제로 새어 두 방이 이어져 있다 (flood-fill 이 옳고 도면/파라미터가 문제)
   B) 라벨 점이 자기 방이 아니라 옆방/복도에 찍혀 있다 (라벨 위치 문제)
 
-방법: 실패한 방들의 라벨 좌표와, 그 좌표가 속한 덩어리의 면적·중심을 찍는다.
+방법: 실패한 방들의 라벨 좌표와, 그 좌표가 속한 덩어리의 면적, 중심을 찍는다.
       면적이 '두 방 합친 크기'면 A, '전혀 다른 방 크기'면 B다.
 """
 from __future__ import annotations
@@ -117,7 +117,7 @@ grid = ndimage.binary_closing(grid.astype(bool), structure=np.ones((k, k), bool)
 lab, _ = ndimage.label(grid == 0)
 cell_m2 = (cell / 1000) ** 2
 
-print(f"격자 {w}x{h} · cell {cell:g}mm · close_gap {close_gap:g}mm\n")
+print(f"격자 {w}x{h}, cell {cell:g}mm, close_gap {close_gap:g}mm\n")
 print(f"{'방번호':8s} {'덩어리':>7s} {'면적㎡':>8s}  가까운 이름")
 print("-" * 62)
 rows = []
@@ -135,7 +135,7 @@ for lid, no, area, nm in rows:
     by[lid].append((no, area, nm))
 for lid, items in sorted(by.items()):
     if len(items) > 1:
-        print(f"★ 덩어리 {lid} ({items[0][1]:.1f}㎡) 를 {len(items)}개 방이 공유:")
+        print(f"덩어리 {lid} ({items[0][1]:.1f}㎡) 를 {len(items)}개 방이 공유:")
         for no, area, nm in items:
             print(f"      {no:8s} ← 라벨 근처 이름 '{nm}'")
 print()

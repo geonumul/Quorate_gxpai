@@ -36,8 +36,8 @@ def read_flows(fname, layer):
 
 sa = read_flows("천정기구도.dxf", "풍량")     # 급기 (천장 HEPA/디퓨저)
 ra = read_flows("리턴풍도도.dxf", "풍량")     # 리턴 (빼내는 공기)
-print(f"■ 급기(SA) {len(sa)}개 · 합 {sum(v for *_ , v in sa):,.0f} CMH")
-print(f"■ 리턴(RA) {len(ra)}개 · 합 {sum(v for *_ , v in ra):,.0f} CMH")
+print(f"급기(SA) {len(sa)}개, 합 {sum(v for *_ , v in sa):,.0f} CMH")
+print(f"리턴(RA) {len(ra)}개, 합 {sum(v for *_ , v in ra):,.0f} CMH")
 
 with connect() as c, c.cursor() as cur:
     cur.execute("SELECT id FROM run WHERE facility_id='f_c783b865' ORDER BY started_at DESC LIMIT 1")
@@ -58,7 +58,7 @@ def attach(flows):
     return d
 
 SA, RA = attach(sa), attach(ra)
-print(f"\n■ 급기·리턴이 **둘 다** 붙은 방 (급기−리턴 vs 실제 압력 대조)")
+print(f"\n급기, 리턴이 **둘 다** 붙은 방 (급기−리턴 vs 실제 압력 대조)")
 print(f"  {'방':7} {'이름':22} {'급기':>7} {'리턴':>7} {'차이':>7} {'실제Pa':>7}  일치?")
 agree = disagree = 0
 for no, nm, pa, area, *_ in sorted(rooms):
@@ -68,5 +68,5 @@ for no, nm, pa, area, *_ in sorted(rooms):
     # 양압이면 diff>0 이어야, 음압이면 diff<0 이어야 한다 (복도 0Pa 기준)
     ok = (diff > 0 and pa > 0) or (diff < 0 and pa < 0) or (abs(diff) < 50 and abs(pa) < 1)
     agree += ok; disagree += (not ok)
-    print(f"  {no:7} {(nm or '')[:20]:22} {SA[no]:>7,.0f} {RA[no]:>7,.0f} {diff:>+7,.0f} {pa:>6.0f}Pa  {'✔' if ok else '★불일치'}")
-print(f"\n  일치 {agree} · 불일치 {disagree}")
+    print(f"  {no:7} {(nm or '')[:20]:22} {SA[no]:>7,.0f} {RA[no]:>7,.0f} {diff:>+7,.0f} {pa:>6.0f}Pa  {'' if ok else '불일치'}")
+print(f"\n  일치 {agree}, 불일치 {disagree}")

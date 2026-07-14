@@ -43,7 +43,7 @@ def raw_dir() -> Path:
     """원본 DXF 폴더. GXPAI_RAW_DIR 이 절대경로면 그대로, 상대경로면 저장소 루트 기준.
 
     주의: 예전엔 .lstrip("./") 로 접두 제거를 시도했으나 lstrip 은 '문자 집합'을 벗겨
-    "/data/raw"→"data/raw", "../x"→"x" 처럼 절대경로·상위경로를 조용히 망가뜨렸다(수정됨).
+    "/data/raw"→"data/raw", "../x"→"x" 처럼 절대경로, 상위경로를 조용히 망가뜨렸다(수정됨).
     """
     p = Path(os.environ.get("GXPAI_RAW_DIR", "raw"))
     return p if p.is_absolute() else repo_root() / p

@@ -6,7 +6,7 @@
   - 방번호 레이어: (dddd) 또는 dddd 패턴 매칭률 상위
   - 방이름 레이어: 한글 텍스트 밀도 상위
   - 화살표 블록: 익명블록(A$*) INSERT 반복 상위 → 접두 추정
-사람은 이 초안을 검토·수정만 한다. 초안이므로 status: draft 로 표기.
+사람은 이 초안을 검토, 수정만 한다. 초안이므로 status: draft 로 표기.
 """
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ def wizard_from_floorplan(dxf_path: str) -> dict:
         | {l for l, n in per_layer_name.items() if n >= 10},
         key=lambda l: -(per_layer_num[l] + per_layer_name[l]),
     )
-    # 감지한 자릿수 범위로 정규식 생성(예전엔 \d{4} 하드코딩이라 3·5자리 번호를 통째로 놓쳤다)
+    # 감지한 자릿수 범위로 정규식 생성(예전엔 \d{4} 하드코딩이라 3, 5자리 번호를 통째로 놓쳤다)
     if num_lens:
         lo, hi = min(num_lens), max(num_lens)
         digits = f"\\d{{{lo}}}" if lo == hi else f"\\d{{{lo},{hi}}}"

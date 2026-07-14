@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""차압도 추출기 - 방번호·이름, TA 수치, 차압 화살표(rotation).
+"""차압도 추출기 - 방번호, 이름, TA 수치, 차압 화살표(rotation).
 
 로드맵: T1.1.2 (v0.1 extract_pressure 이식)
 리스크 반영: R-A1/A2/S-10 (dxftext 경유), S-3 (여러 줄 이름 병합).
@@ -22,7 +22,7 @@ class PressureExtractor(BaseExtractor):
         pr = profile["pressure"]
         floors = profile["floors"]
         entity_types = profile.get("label_entity_types", ["TEXT", "MTEXT"])
-        # ★방번호 정규식을 **하드코딩하고 있었다** — `^\(?(\d{4}(?:-\d+)?)\)?$`.
+        # 방번호 정규식을 **하드코딩하고 있었다** — `^\(?(\d{4}(?:-\d+)?)\)?$`.
         #   평면도 추출기는 프로파일(`floorplan.room_no_regex`)에서 읽는데 여기만 박아뒀다.
         #
         #   그 바람에 참고도면(방번호가 `F2I01` 꼴)의 **차압도 방이 0개**가 됐고,
@@ -102,19 +102,19 @@ class PressureExtractor(BaseExtractor):
                 }))
 
         # ── 차압 화살표 ────────────────────────────────────────────
-        # ★예전엔 rotation 만 저장하고 "화살촉은 -y" 라고 **가정**했다. 그 가정 때문에
+        # 예전엔 rotation 만 저장하고 "화살촉은 -y" 라고 **가정**했다. 그 가정 때문에
         #   28개 중 9개를 거꾸로 읽었다(블록마다 화살촉 방향이 다르고, 일부는 거울반사).
         #   이제 블록 기하에서 **재서** 세계 각도(head_deg)를 낸다. arrowgeom 모듈 참조.
         #
-        # ★레이어 이름이 곧 **차압 설정값**이다: 'Air Flow 10Pa' / 'Air Flow 15Pa' /
+        # 레이어 이름이 곧 **차압 설정값**이다: 'Air Flow 10Pa' / 'Air Flow 15Pa' /
         #   'Air Flow no차압'. 도면이 구간별 목표 차압을 직접 말해주는데 예전엔 버렸다.
-        # ★★**블록 재귀로 바꿨다.** 예전엔 `doc.modelspace()` 만 훑었다.
-        #   방 라벨·벽·문은 재귀로 고쳤는데 **화살표만 안 고쳤다.**
+        # **블록 재귀로 바꿨다.** 예전엔 `doc.modelspace()` 만 훑었다.
+        #   방 라벨, 벽, 문은 재귀로 고쳤는데 **화살표만 안 고쳤다.**
         #   같은 도면에서 화살표가 시트 블록 안에 있으면 **화살표 0개** → pressure_relation 이
         #   비고 → **PRES 규칙 전부가 조용히 "위반 없음"처럼 보인다.**
         #
-        #   ⚠재귀를 켜면 블록 안 구성 선분(507개)까지 나온다 → **INSERT 만** 집는다.
-        #   ⚠좌표도 matrix44 로 변환한다. 직접 계산하면 **거울반사**를 놓친다.
+        #   [주의]재귀를 켜면 블록 안 구성 선분(507개)까지 나온다 → **INSERT 만** 집는다.
+        #   [주의]좌표도 matrix44 로 변환한다. 직접 계산하면 **거울반사**를 놓친다.
         from ..blockwalk import walk, world_point
 
         prefix = pr.get("arrow_block_prefix", "")

@@ -8,11 +8,11 @@
        → DXF를 raw/{facility_id}/ 로 복사, sha256 지문 + 종류 자동판별, facility/drawing 적재
 3. [ ] `gxpai inventory <facility_id>` → 레이어/텍스트/블록 통계 + 진단(정렬텍스트/OCS미러/frozen)
 4. [ ] `gxpai profile wizard <facility_id>` → `profiles/_draft_<facility_id>.yaml` 초안 자동 생성
-5. [ ] 초안을 사람이 검토·수정 → `profiles/<new>.yaml` 로 정식 배치, facility 재등록
+5. [ ] 초안을 사람이 검토, 수정 → `profiles/<new>.yaml` 로 정식 배치, facility 재등록
 6. [ ] `gxpai ingest <facility_id>` → room/equipment/ahu 적재 + 미결질문 시드 (run_id 발급)
 7. [ ] 검증 쿼리로 번호방/장비귀속/AHU 수 확인 (리포트 명령은 Stage 2 에서)
 
-> 실측 완료(2026-07-02): 합성 시설(다른 레이어명·5자리 번호)을 **코드 수정 0줄**로 통과.
+> 실측 완료(2026-07-02): 합성 시설(다른 레이어명, 5자리 번호)을 **코드 수정 0줄**로 통과.
 > 단, 도면 파일명이 특이하면 종류판별 키워드 확인 필요(현재 한/영 키워드 지원).
 
 ## 판단 기준

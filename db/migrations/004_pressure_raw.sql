@@ -1,5 +1,5 @@
 -- 004_pressure_raw.sql - 추출했으나 저장 안 되던 원시 데이터 보존 (Stage 1 완결성)
--- 감사에서 확인: 차압 화살표 98개·TA 98개가 추출 후 버려짐.
+-- 감사에서 확인: 차압 화살표 98개, TA 98개가 추출 후 버려짐.
 -- 화살표 방향 의미 확정(S-1)은 Stage 2 이므로, 지금은 room 미귀속 + approx=true 로 원시 보관.
 -- 차압도 방이름은 room.pressure_name 에 보존 → Stage 2 LBL-001(이름 불일치) 검출용.
 ALTER TABLE room ADD COLUMN IF NOT EXISTS pressure_name TEXT;

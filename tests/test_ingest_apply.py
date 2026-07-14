@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""ingest 파이프라인의 순수 함수 시험 — 등급·압력·압력유형 적용.
+"""ingest 파이프라인의 순수 함수 시험 — 등급, 압력, 압력유형 적용.
 
-★가장 중요한 회귀: **등급을 '세기만 하고 버리던' 버그**.
+가장 중요한 회귀: **등급을 '세기만 하고 버리던' 버그**.
   예전 ingest 는 GradeExtractor 결과를 counts["grade_zone"] 로 세기만 하고
   방에 붙이지 않았다. 그래서 room.grade 가 영원히 NULL 이었고,
-  grade 에 의존하는 규칙(PRES-001·ADJ-001)이 **데이터가 있어도 0건**을 냈다.
+  grade 에 의존하는 규칙(PRES-001, ADJ-001)이 **데이터가 있어도 0건**을 냈다.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from gxpai.core.run import apply_grades, apply_pressures, apply_regimes
 
 
 def test_등급이_방에_실제로_붙는다():
-    """★'세기만 하고 버리던' 버그의 회귀."""
+    """'세기만 하고 버리던' 버그의 회귀."""
     merged = [{"room_no": "F2I01", "name": "탈의실(남)"},
               {"room_no": "F2I03", "name": "갱의실(남)"}]
     grades = [{"room_no": "F2I01", "grade": "CNC"},
@@ -68,7 +68,7 @@ def test_압력유형이_이름으로_추정된다():
 
 
 def test_프로파일_override_가_추론을_이긴다():
-    """★'캡슐 충전실'은 분말이라 분진이 나지만, 이름만으로는 못 가른다.
+    """'캡슐 충전실'은 분말이라 분진이 나지만, 이름만으로는 못 가른다.
 
     (무균 '바이알 충진'은 액체라 분진이 없다 — 같은 단어가 시설마다 정반대다.)
     그래서 프로파일로 지정할 수 있어야 하고, 그게 추론을 이겨야 한다.

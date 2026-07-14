@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""평면도 추출기 - 방번호·이름·좌표·층.
+"""평면도 추출기 - 방번호, 이름, 좌표, 층.
 
 로드맵: T1.1.2 (v0.1 extract_rooms 이식)
 리스크 반영: R-A1/A2/S-10 (dxftext 경유), S-3 (여러 줄 이름 병합을 평면도에도 적용).
@@ -37,7 +37,7 @@ class FloorplanExtractor(BaseExtractor):
         penalty = fp.get("name_above_penalty", 0.0)
         merge = fp.get("multiline_merge", {})
 
-        # ★label_exclude_blocks: 기둥·치수 블록 안으로 들어가지 않는다.
+        # label_exclude_blocks: 기둥, 치수 블록 안으로 들어가지 않는다.
         #   블록 재귀를 켠 뒤 `SC2(기둥)` 안의 철골 규격이 방 이름으로 빨려 들어왔다.
         _skip = profile.get("label_exclude_blocks")
         texts = list(iter_label_texts(doc, fp["room_layers"], entity_types,
@@ -61,11 +61,11 @@ class FloorplanExtractor(BaseExtractor):
 
         records: list[Record] = []
         used = set()
-        # ★**이름 귀속은 배타적이지 않다** — 두 방번호가 같은 이름 텍스트를 둘 다 가져갈 수 있다.
-        #   그러면 한 방이 **옆방 이름을 훔친다**. 이름이 틀리면 그 방의 압력 유형·에어락·복도
+        # **이름 귀속은 배타적이지 않다** — 두 방번호가 같은 이름 텍스트를 둘 다 가져갈 수 있다.
+        #   그러면 한 방이 **옆방 이름을 훔친다**. 이름이 틀리면 그 방의 압력 유형, 에어락, 복도
         #   판정이 전부 틀어진다(우리 규칙 상당수가 이름을 본다).
         #
-        #   ⚠그런데 **기준 평면도에서 재 보니 0건이었다.** 이름 후보가 242개인데 방번호가 96개라
+        #   [주의]그런데 **기준 평면도에서 재 보니 0건이었다.** 이름 후보가 242개인데 방번호가 96개라
         #     각자 자기 이름을 찾아간다. → **알고리즘을 바꾸지 않는다.**
         #     근거 없이 배타 매칭으로 바꾸면 기준값(111방)만 흔들린다.
         #
@@ -104,9 +104,9 @@ class FloorplanExtractor(BaseExtractor):
                 },
             ))
 
-        # ★한 이름을 여러 방번호가 가져갔다 = 한 방이 **옆방 이름을 훔쳤다.**
+        # 한 이름을 여러 방번호가 가져갔다 = 한 방이 **옆방 이름을 훔쳤다.**
         #   기준 도면에선 0건이지만, 이름이 성긴 도면에서는 일어난다.
-        #   조용히 넘어가면 그 방의 압력 유형·에어락·복도 판정이 전부 틀어진다.
+        #   조용히 넘어가면 그 방의 압력 유형, 에어락, 복도 판정이 전부 틀어진다.
         for idx, nos in claimed.items():
             if len(nos) > 1:
                 records.append(Record(kind="name_conflict", payload={

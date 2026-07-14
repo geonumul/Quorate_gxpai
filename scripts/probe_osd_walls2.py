@@ -68,7 +68,7 @@ for f, (x0, x1, y0, y1) in sorted(boxes.items()):
         if any(x0 <= px <= x1 and y0 <= py <= y1 for px, py in pts):
             cnt[e.dxf.layer] += 1
     n_lab = sum(1 for no, _x, _y in labels if no[0] == f)
-    print(f"\n■ {f}층대 (방 라벨 {n_lab}개)  x {x0:.0f}~{x1:.0f}")
+    print(f"\n{f}층대 (방 라벨 {n_lab}개)  x {x0:.0f}~{x1:.0f}")
     print(f"   이 구역 안의 선/호 레이어 상위 12:")
     for k, v in cnt.most_common(12):
         print(f"     {v:6d}  {k}")

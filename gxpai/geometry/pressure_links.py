@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """차압 화살표 ↔ 방 귀속 + **압력 방향 해석**.
 
-로드맵: T2.1 후속. docs/기존데이터_분석.md 가설 2·3의 우회로를 파이프라인에 반영.
+로드맵: T2.1 후속. docs/기존데이터_분석.md 가설 2, 3의 우회로를 파이프라인에 반영.
 
 각 화살표에 대해 차압도 방 라벨(같은 좌표계) 중 화살촉이 향하는 쪽(head)과 꼬리 쪽(tail)을
 찾아 pressure_relation.room_head / room_tail 에 저장한다. 이것은 **도면에서 읽은 사실**이다.
 
 ## S-1(화살표 의미) — **확정됨 (2026-07-13)**
     **화살촉 = 저압 쪽 = 공기가 흘러가는 방향.**  (공기는 고압에서 저압으로 흐른다)
-    → `room_high = room_tail` · `room_low = room_head`
+    → `room_high = room_tail`, `room_low = room_head`
 
 확정 근거 4중:
   ① 1차 미팅(2026-07-09) 대표님: "바람은 높은 데서 낮은 데로"
@@ -45,7 +45,7 @@ def head_vector(rotation_deg: float) -> tuple[float, float]:
 def associate_by_head(ax: float, ay: float, head_deg: float,
                       rooms: list[tuple], max_dist: float = MAX_DIST,
                       max_lat: float = MAX_LAT):
-    """★현재 경로. 화살촉 **세계 각도**(블록 기하에서 잰 값)로 방을 붙인다.
+    """현재 경로. 화살촉 **세계 각도**(블록 기하에서 잰 값)로 방을 붙인다.
 
     associate_one() 과 달리 회전각→방향 가정을 하지 않는다.
     """
@@ -58,7 +58,7 @@ def associate_one(ax: float, ay: float, rotation_deg: float,
                   max_lat: float = MAX_LAT):
     """구(舊) 경로 — 회전각으로부터 방향을 **가정**한다. 화살촉을 못 읽었을 때만 쓴다.
 
-    ⚠ 이 가정("rotation=0 이면 화살촉 -y")이 참고도면에서 9건을 거꾸로 읽게 했다.
+    [주의] 이 가정("rotation=0 이면 화살촉 -y")이 참고도면에서 9건을 거꾸로 읽게 했다.
       블록 기하가 읽히는 도면에서는 associate_by_head() 를 써야 한다.
     """
     hx, hy = head_vector(rotation_deg)
@@ -84,7 +84,7 @@ def _associate(ax: float, ay: float, hx: float, hy: float,
             continue
         proj = dx * hx + dy * hy
         lat = abs(dx * -hy + dy * hx)
-        # ★후보 점수 = |축거리| + LAT_WEIGHT × 측면거리.
+        # 후보 점수 = |축거리| + LAT_WEIGHT × 측면거리.
         #
         #   예전엔 |proj| 만 봤다(축 방향으로 가장 가까운 방). 실제 도면에서 이게 깨졌다:
         #     화살표 @(304885,47007) 꼬리쪽 후보
@@ -108,7 +108,7 @@ def _associate(ax: float, ay: float, hx: float, hy: float,
 def build(run_id: str) -> int:
     """pressure_relation 각 화살표에 room_head/room_tail 을 채운다. 귀속 성공 수 반환."""
     with connect() as conn, conn.cursor() as cur:
-        # ★차압도 좌표(pres_x/y)가 없으면 평면도 좌표(plan_x/y)로 폴백한다.
+        # 차압도 좌표(pres_x/y)가 없으면 평면도 좌표(plan_x/y)로 폴백한다.
         #   기준 시설은 평면도와 차압도가 **다른 파일**이라 좌표계가 달라 pres_x 를 따로 뒀다.
         #   그런데 새 참고도면은 **평면도와 차압도가 한 장**이다 → pres_x 가 NULL 이라
         #   화살표가 방에 하나도 안 붙었다(귀속 0건). 도면 구성은 시설마다 다르다.
@@ -124,7 +124,7 @@ def build(run_id: str) -> int:
         )
         rooms = [(r[0], r[1], r[2]) for r in cur.fetchall()]
 
-        # ★head_deg = 블록 기하에서 **잰** 세계 각도. rotation 은 폴백(옛 데이터용).
+        # head_deg = 블록 기하에서 **잰** 세계 각도. rotation 은 폴백(옛 데이터용).
         #   예전엔 rotation 만 보고 "화살촉 = -y" 라 가정했다가 28개 중 9개를 거꾸로 읽었다.
         #   (블록마다 화살촉 방향이 ±x 로 정반대였고 일부는 xscale 음수로 거울반사)
         cur.execute(
@@ -140,7 +140,7 @@ def build(run_id: str) -> int:
             if hdeg is not None:
                 tail_id, head_id = associate_by_head(ex, ey, hdeg, rooms)
             else:
-                # ★★화살촉을 못 읽었다 → **추측한다. 그러나 확정으로 표시하지 않는다.**
+                # 화살촉을 못 읽었다 → **추측한다. 그러나 확정으로 표시하지 않는다.**
                 #
                 #   예전엔 옛 가정(`associate_one`)으로 추측해 놓고 `approx=False`(확정)로
                 #   기록했다. 그 가정은 **참고도면에서 28개 중 9개를 거꾸로 읽게 한 바로 그것**이다.
@@ -152,12 +152,12 @@ def build(run_id: str) -> int:
                 #   → 추측값은 참고용으로만 두고 **approx=true** 로 표시한다. 규칙이 건너뛴다.
                 tail_id, head_id = associate_one(ex, ey, rot or 0.0, rooms)
                 guessed = True
-            # ★S-1 확정(2026-07-13): 화살촉 = 저압 쪽, 꼬리 = 고압 쪽.
+            # S-1 확정(2026-07-13): 화살촉 = 저압 쪽, 꼬리 = 고압 쪽.
             #   예전엔 이 해석을 미뤄 room_high/room_low 를 NULL 로 뒀고,
             #   그 바람에 차압관계 98개가 있어도 **방 귀속 확정 0건**이라 PRES 규칙이 전부 죽었다.
             #   근거 4중 확인(모듈 docstring 참조). approx=false 로 표시해 규칙이 판정하게 한다.
             linked = head_id is not None and tail_id is not None
-            # ★추측한 방향(head_deg 를 못 읽음)은 **확정이 아니다.** approx=true.
+            # 추측한 방향(head_deg 를 못 읽음)은 **확정이 아니다.** approx=true.
             approx = (not linked) or guessed
             cur.execute(
                 """UPDATE pressure_relation

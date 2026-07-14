@@ -15,7 +15,7 @@ _PAD = 30
 
 def render_floor(floor: str, rooms: list[dict], violation_room_nos: set[str]) -> str:
     """rooms: [{room_no, name, x, y}]. y 는 DXF(위가 +) → SVG(아래가 +) 로 뒤집는다."""
-    # x·y 둘 다 있어야 점을 찍는다(한쪽만 있으면 min/뒤집기에서 TypeError).
+    # x, y 둘 다 있어야 점을 찍는다(한쪽만 있으면 min/뒤집기에서 TypeError).
     pts = [(r["x"], r["y"]) for r in rooms
            if r.get("x") is not None and r.get("y") is not None]
     if not pts:

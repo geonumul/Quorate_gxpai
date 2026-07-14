@@ -2,7 +2,7 @@
 """인접행렬 - 두 가지 방법.
 
   polygon (정밀)  : 벽 flood-fill 로 얻은 방 영역이 서로 닿는가 (geometry/boundaries.py)
-                    → **이게 정답이다.** ADJ-001·PRES-002/003 이 이 정확도를 요구한다.
+                    → **이게 정답이다.** ADJ-001, PRES-002/003 이 이 정확도를 요구한다.
   nearest (근사)  : 방 경계를 못 구했을 때의 폴백. 같은 층 최근접 k개.
                     오탐/누락이 있어 규칙을 켜기엔 부족하다.
 
@@ -24,7 +24,7 @@ def load_pairs(run_id: str, pairs: list[tuple[str, str]], method: str = "polygon
 
     door_pairs: **문으로 이어진** 쌍(동선). via_door 로 표시한다.
       None 이면 문 데이터가 없는 도면 → via_door 를 NULL 로 둔다(판정 불가).
-      조문은 "작업원 **동선**"·"**연결된** 구역"을 말한다. 벽만 맞대고 문이 없으면
+      조문은 "작업원 **동선**", "**연결된** 구역"을 말한다. 벽만 맞대고 문이 없으면
       사람이 오갈 수 없으니 등급이 급변해도 동선 위반이 아니다.
     """
     with connect() as conn, conn.cursor() as cur:

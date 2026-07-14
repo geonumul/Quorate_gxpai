@@ -24,7 +24,7 @@ from gxpai.geometry import boundaries  # noqa: E402
 from gxpai.ingest.dxftext import iter_label_texts  # noqa: E402
 
 DXF = Path("raw/f_1ae3a266/A-201~207 평면도(증축후).dxf")
-# ★내 임시폴더 절대경로가 박혀 있었다 — **다른 기계에선 아예 안 돈다.**
+# 내 임시폴더 절대경로가 박혀 있었다 — **다른 기계에선 아예 안 돈다.**
 OUT = Path("artifacts")
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -43,11 +43,11 @@ for x, y, t, _h in iter_label_texts(doc, fp["room_layers"], prof["label_entity_t
 print(f"방번호 라벨 {len(rooms)}개")
 
 BOUND = {
-    # ★★벽 레이어를 처음에 잘못 잡았다.
-    #   `크린판넬`·`판넬`·`wall` 은 **다른 시트**(방 라벨이 없는 상세도)의 것이었다.
+    # 벽 레이어를 처음에 잘못 잡았다.
+    #   `크린판넬`, `판넬`, `wall` 은 **다른 시트**(방 라벨이 없는 상세도)의 것이었다.
     #   그걸로 돌렸더니 96개 방이 전부 하나의 덩어리(40,710㎡)로 뭉쳤다 — 벽이 하나도 없었으니까.
-    #   방 라벨이 있는 시트(3층 x392k~485k · 4층 x521k~611k)의 벽은 **`하니컴패널`** 이다
-    #   (허니컴 패널 = 클린룸 벽체. 3층 614개 · 4층 606개).
+    #   방 라벨이 있는 시트(3층 x392k~485k, 4층 x521k~611k)의 벽은 **`하니컴패널`** 이다
+    #   (허니컴 패널 = 클린룸 벽체. 3층 614개, 4층 606개).
     #   → **"벽 레이어를 이름으로 짐작하지 말고, 라벨이 있는 구역 안에서 세어라."**
     "wall_layers": ["하니컴패널", "계단실", "COL", "창호", "WIN-1",
                     "크린판넬", "판넬", "GW PANEL", "스테인레스 칸막이벽"],
@@ -63,13 +63,13 @@ for cg, ag in [(200, 300), (300, 400), (450, 500)]:
     b = dict(BOUND, close_gap_mm=cg, adj_gap_mm=ag)
     res = boundaries.build(doc, rooms, {"boundaries": b})
     print(f"  close_gap={cg:3d} adj_gap={ag:3d} → 방 {len(res.rooms):3d}/{len(rooms)} "
-          f"· 실패 {len(res.failed):3d} · 인접 {len(res.adjacency):3d}")
+          f", 실패 {len(res.failed):3d}, 인접 {len(res.adjacency):3d}")
 
 res = boundaries.build(doc, rooms, {"boundaries": BOUND})
-print(f"\n■ 채택(close_gap=200): 방 {len(res.rooms)}/{len(rooms)} · 인접 {len(res.adjacency)}쌍")
+print(f"\n채택(close_gap=200): 방 {len(res.rooms)}/{len(rooms)}, 인접 {len(res.adjacency)}쌍")
 for r in sorted(res.rooms, key=lambda r: -r.area_m2)[:10]:
     print(f"   {r.room_no:8s} {r.area_m2:8.1f} ㎡")
-print("\n■ 실패 사유 (상위 10)")
+print("\n실패 사유 (상위 10)")
 for f in res.failed[:10]:
     print("   ", f)
 

@@ -4,7 +4,7 @@
 로드맵: T2.4.2
 내용: 파이프라인 버전 스탬프 + 품질 지표(매칭률/귀속률 등) + violations 표(심각도 정렬)
       + 층별 SVG(방 점 + 위반 마커) + 데이터 정합성 경고 배너(미확정 규칙 명시).
-CDN 금지, 단일 파일(스타일 인라인). ACC 논문(N2): 리포트에 근거·추론을 담는다.
+CDN 금지, 단일 파일(스타일 인라인). ACC 논문(N2): 리포트에 근거, 추론을 담는다.
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ th{background:#151a22;color:#9aa4b2}
 
 
 def _gated_rules(ruleset: str) -> list[dict]:
-    """검수 대기(review=unreviewed)라 실행하지 않은 규칙 목록(근거·요구 포함)."""
+    """검수 대기(review=unreviewed)라 실행하지 않은 규칙 목록(근거, 요구 포함)."""
     from ..compliance.engine import _load_ruleset
     try:
         rs = _load_ruleset(ruleset)
@@ -72,7 +72,7 @@ def _metrics(cur, run_id, facility_id) -> dict:
     ov = one("SELECT count(*) FROM facility_meta WHERE run_id=%s", run_id)
     # 2026-07-14 에 새로 얻은 것들
     bnd = one("SELECT count(*) FROM room WHERE run_id=%s AND area_m2 IS NOT NULL", run_id)
-    # 2026-07-14: 시트 6장 중 3장을 새로 열었다 (차압계·인터락·천정 풍량)
+    # 2026-07-14: 시트 6장 중 3장을 새로 열었다 (차압계, 인터락, 천정 풍량)
     gauge = one("SELECT count(*) FROM pressure_relation WHERE run_id=%s AND has_gauge", run_id)
     lock = one("SELECT coalesce(sum(interlock_count),0) FROM room WHERE run_id=%s", run_id)
     flow = one("SELECT count(*) FROM room WHERE run_id=%s AND airflow_cmh IS NOT NULL", run_id)
@@ -80,15 +80,15 @@ def _metrics(cur, run_id, facility_id) -> dict:
     pa = one("SELECT count(*) FROM room WHERE run_id=%s AND pressure_pa IS NOT NULL", run_id)
     return {
         "번호방": numbered, "양쪽도면 매칭": both, "무번호 공간": unnum,
-        # ★방 경계: 벽 flood-fill. 못 구한 방은 조용히 넘기지 않고 여기서 빠진다
+        # 방 경계: 벽 flood-fill. 못 구한 방은 조용히 넘기지 않고 여기서 빠진다
         "방 경계(면적)": bnd,
         "청정등급": grd, "절대압력(Pa)": pa,
         "장비(귀속/전체)": f"{eq_att}/{eq_tot}", "공조기(AHU)": ahu,
-        # ★인접: '문으로 이어짐' = 동선. 조문(별표1 4-타)이 말하는 건 벽이 아니라 이것이다
+        # 인접: '문으로 이어짐' = 동선. 조문(별표1 4-타)이 말하는 건 벽이 아니라 이것이다
         "인접(문/전체)": f"{adj_door}/{adj}",
-        # ★화살표: '귀속' = 양쪽 방이 확정된 것. 나머지는 판정하지 않는다
+        # 화살표: '귀속' = 양쪽 방이 확정된 것. 나머지는 판정하지 않는다
         "차압 화살표(귀속/전체)": f"{arrows_ok}/{arrows}",
-        # ★차압계·인터락은 **다른 시트**에 있었다. 시트 하나만 보다가 통째로 놓칠 뻔했다.
+        # 차압계, 인터락은 **다른 시트**에 있었다. 시트 하나만 보다가 통째로 놓칠 뻔했다.
         "차압계 설치 구간": gauge,
         "인터락": lock,
         "급기 풍량 표기 방": flow,
@@ -141,25 +141,25 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
     # 조립
     esc = html.escape
     out = [f"<h1>GXPAI 규정 검증 리포트 - {esc(fac_name)}</h1>"]
-    out.append(f'<div class="sub">facility={esc(facility_id)} · run={esc(run_id)} · '
+    out.append(f'<div class="sub">facility={esc(facility_id)}, run={esc(run_id)}, '
                f'pipeline v{PIPELINE_VERSION}</div>')
 
-    # ★배너를 **사실에 맞게** 유지한다. 예전 배너는 "XREF 미수령·Grade 미확보·화살표 미확정"
+    # 배너를 **사실에 맞게** 유지한다. 예전 배너는 "XREF 미수령, Grade 미확보, 화살표 미확정"
     #   이라고 적혀 있었는데 셋 다 해결된 뒤에도 그대로였다. **리포트가 거짓말을 하고 있었다.**
     #   (내 문서 안의 틀린 주장을 방치하지 않는다 — 이번 밤에만 세 번째다)
     n_graded = metrics.get("청정등급") or 0
     if not n_graded:
         gate_why = ("이 도면에는 <b>청정등급 표기가 없습니다</b>(0건). "
-                    "등급이 있어야 판정할 수 있는 규칙(PRES-001 · ADJ-001/002/005)은 "
+                    "등급이 있어야 판정할 수 있는 규칙(PRES-001, ADJ-001/002/005)은 "
                     "<b>판정 불가</b> 상태입니다.")
     else:
-        gate_why = ("추출은 됐습니다(방 경계 · 문 동선 · 등급 · 절대압력 · 차압계 · 인터락). "
+        gate_why = ("추출은 됐습니다(방 경계, 문 동선, 등급, 절대압력, 차압계, 인터락). "
                     "게이트가 잠긴 이유는 데이터가 아니라 <b>컨설턴트 미검수</b>입니다.")
-    out.append('<div class="banner"><b>게이트 잠김 — 압력(PRES)·인접(ADJ) 규칙은 '
+    out.append('<div class="banner"><b>게이트 잠김 — 압력(PRES), 인접(ADJ) 규칙은 '
                '아직 실행하지 않습니다.</b><br>' + gate_why +
                '<br>검수 전에는 위반 이력을 DB에 쓰지 않습니다. '
                '무엇이 잡히는지는 <code>scripts/preview_rules.py</code> 로만 봅니다(dry-run).'
-               '<br>모든 추정은 <b>보류 · 발주처 확인 필요</b>입니다 — '
+               '<br>모든 추정은 <b>보류, 발주처 확인 필요</b>입니다 — '
                '<code>docs/발주처_확인요청서_2026-07-14.md</code></div>')
 
     out.append("<h2>품질 지표</h2><div class='metrics'>")
@@ -183,7 +183,7 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
         out.append("<p>검출된 위반 없음.</p>")
 
     # 발주처 확인 대기 (감사 상태 모델: 실행됨 / 미검수-잠금 / 확인질문)
-    out.append("<h2>발주처 확인 대기 (미검수·미확정)</h2>")
+    out.append("<h2>발주처 확인 대기 (미검수, 미확정)</h2>")
     out.append('<p class="sub">아래는 우리 측 잠정 상태로, 발주처 확인 전까지 규칙을 실행하지 않거나 '
                '해석을 확정하지 않은 항목입니다. 확인되면 규칙을 활성화합니다.</p>')
     if gated_rules:
@@ -193,7 +193,7 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
                        f"<td>{esc(str(g.get('title') or '-'))}</td>"
                        f"<td>{esc(str(g.get('requirement') or '-'))}</td>"
                        f"<td class='sub'>{esc(str(g.get('clause') or '-'))}</td>"
-                       f"<td class='sev-major'>검수대기·잠금</td></tr>")
+                       f"<td class='sev-major'>검수대기, 잠금</td></tr>")
         out.append("</table>")
     if open_questions:
         out.append("<table><tr><th>확인 항목</th><th>내용</th></tr>")
@@ -204,22 +204,22 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
         out.append("<p>확인 대기 항목 없음.</p>")
 
     # 층별 SVG
-    # ── 방 목록: 압력 유형·면적·등급 ─────────────────────────────
-    # ★압력 유형(regime)이 압력 규칙의 **전제**다. 이게 틀리면 판정이 통째로 뒤집힌다.
+    # ── 방 목록: 압력 유형, 면적, 등급 ─────────────────────────────
+    # 압력 유형(regime)이 압력 규칙의 **전제**다. 이게 틀리면 판정이 통째로 뒤집힌다.
     #   "깨끗한 방이 고압"은 **보호형에만** 맞는 말이고, 분진 발생실은 **정반대**다.
     #   그래서 리포트에 드러내 놓고 **눈으로 검수받게** 한다.
     REGIME_KO = {
         "protect": ("보호", "실이 고압 — 밖의 오염이 못 들어오게"),
         "contain": ("봉쇄", "실이 <b>저압</b> — 분진이 복도로 못 나가게"),
-        "hazard": ("특수", "실이 <b>음압</b> — 페니실린·세포독성"),
-        "neutral": ("중립", "압력 관리 대상 아님(복도·보관소·기계실)"),
+        "hazard": ("특수", "실이 <b>음압</b> — 페니실린, 세포독성"),
+        "neutral": ("중립", "압력 관리 대상 아님(복도, 보관소, 기계실)"),
     }
     typed = [r for r in rooms if r.get("regime")]
     if typed:
         out.append("<h2>압력 유형 (압력 규칙의 전제 — 검수 필요)</h2>")
         out.append("<p style='color:#9aa4b2;font-size:12px'>"
                    "‘깨끗한 방이 고압’은 <b>보호형에만</b> 맞는 말입니다. "
-                   "분진이 나는 방(타정·과립·칭량)은 <b>정반대로 저압</b>이어야 합니다"
+                   "분진이 나는 방(타정, 과립, 칭량)은 <b>정반대로 저압</b>이어야 합니다"
                    "(2010 시설기준 안내서 p.24 그림6). "
                    "유형이 틀리면 판정이 통째로 뒤집히므로 <b>눈으로 확인해 주십시오.</b><br>"
                    "출처 <code>inferred</code> = 방 이름으로 <b>추정</b>한 것입니다. "
@@ -247,14 +247,14 @@ def generate(facility_id: str, run_id: str | None = None) -> Path:
                 f"<td>{esc(r.get('grade') or '—')}</td><td>{pa}</td><td>{area}</td></tr>")
         out.append("</table>")
 
-    out.append("<h2>층별 배치 (방 위치 · 위반 마커)</h2>")
+    out.append("<h2>층별 배치 (방 위치, 위반 마커)</h2>")
     floors = sorted({r["floor"] for r in rooms if r["floor"]})
     for fl in floors:
         fr = [r for r in rooms if r["floor"] == fl]
         out.append(f"<h3 style='font-size:13px;color:#9aa4b2'>{esc(fl)} ({len(fr)}방)</h3>")
         out.append(f"<div class='svgwrap'>{render_floor(fl, fr, viol_room_nos)}</div>")
 
-    out.append('<div class="foot">GXPAI Engine · 자동 생성 · 고객 식별 정보 포함(비공개). '
+    out.append('<div class="foot">GXPAI Engine, 자동 생성, 고객 식별 정보 포함(비공개). '
                '포트폴리오용은 익명화 버전 별도 생성.</div>')
 
     body = f"<!doctype html><html lang='ko'><head><meta charset='utf-8'>" \
