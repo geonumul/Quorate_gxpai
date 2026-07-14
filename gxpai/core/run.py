@@ -201,8 +201,6 @@ def ingest(facility_id: str) -> dict:
     #   (rels=[] · door_pairs=[] · has_gauge=false 에 이어 **네 번째** 같은 함정이다)
     if interlocks:
         _attach_interlocks(merged, interlocks)
-    if airflows:
-        _attach_airflow(merged, airflows)
 
     # ── 방 경계(벽 flood-fill): 면적 + 정밀 인접 ──────────────────
     # 프로파일에 boundaries.wall_layers 가 없으면 조용히 건너뛴다(기존 최근접-k 인접 유지).
@@ -217,6 +215,13 @@ def ingest(facility_id: str) -> dict:
                 r["area_m2"] = br.area_m2
                 r["boundary"] = br.polygon
                 r["boundary_method"] = "floodfill"
+
+        # ★급기 풍량을 **방 경계 안**에 들어가는지로 붙인다.
+        #   예전엔 '반경 4m 최근접 방'이었다 → 72㎡ 충진실의 급기구가 1.5㎡ 전실에 붙었다
+        #   (NC 3㎡ 방에 1,697 CMH = 환기 187회/hr 이라는 말도 안 되는 값이 나왔다).
+        #   방 경계를 이미 갖고 있는데 안 쓰고 있었다.
+        if airflows:
+            _attach_airflow_by_boundary(merged, airflows, boundary_res)
 
     # 나노초 해상도로 run_id 발급: 같은 초에 두 번 ingest 해도 PK 충돌하지 않게(M5).
     run_id = f"run_{facility_id}_{time.time_ns()}"
@@ -386,20 +391,28 @@ def _nearest_room_id(x, y, room_points, max_d=8000):
 AIRFLOW_RADIUS_MM = 4000.0    # 급기구 풍량 숫자를 방에 붙이는 반경
 
 
-def _attach_airflow(rooms: list[dict], flows: list[dict]) -> int:
-    """급기 풍량(CMH)을 방에 **합산**한다. 한 방에 급기구가 여러 개일 수 있다."""
-    pts = [(r, r.get("plan_x"), r.get("plan_y")) for r in rooms]
-    pts = [(r, x, y) for r, x, y in pts if x is not None and y is not None]
-    n = 0
+def _attach_airflow_by_boundary(rooms: list[dict], flows: list[dict], bres) -> int:
+    """급기 풍량(CMH)을 **방 경계 안**에 들어가는지로 붙여 합산한다.
+
+    ★예전엔 '반경 4m 최근접 방'으로 붙였다. 그러면 **큰 방의 급기구가 옆 작은 방에 붙는다** —
+      72㎡ 충진실의 디퓨저가 1.5㎡ 무균 전실에 붙고, NC 3㎡ 방에 1,697 CMH
+      (환기 187회/hr)라는 말도 안 되는 값이 나왔다.
+      **방 경계를 이미 갖고 있는데 안 쓰고 있었다.**
+
+    경계 밖(복도 사이·벽 위)에 찍힌 풍량은 **아무 방에도 붙이지 않는다.** 추측하지 않는다.
+    """
+    by_no = {r.get("room_no"): r for r in rooms if r.get("room_no")}
+    n = orphan = 0
     for f in flows:
-        cand = [(math.hypot(x - f["x"], y - f["y"]), i) for i, (r, x, y) in enumerate(pts)]
-        if not cand:
+        no = bres.room_at(f["x"], f["y"])
+        if not no or no not in by_no:
+            orphan += 1
             continue
-        d, i = min(cand)
-        if d <= AIRFLOW_RADIUS_MM:
-            r = pts[i][0]
-            r["airflow_cmh"] = (r.get("airflow_cmh") or 0.0) + f["cmh"]
-            n += 1
+        r = by_no[no]
+        r["airflow_cmh"] = (r.get("airflow_cmh") or 0.0) + f["cmh"]
+        n += 1
+    if orphan:
+        print(f"  · 급기 풍량 {orphan}개는 방 경계 밖이라 붙이지 않았다(추측하지 않는다)")
     return n
 
 

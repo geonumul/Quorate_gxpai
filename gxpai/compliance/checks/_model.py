@@ -47,6 +47,9 @@ class RoomView:
     # migration 011. 이 방에 붙은 **인터락(연동장치)** 개수 (별표1 4-파)
     #   None = 인터락 도면이 없는 시설 → 판정 불가. "인터락이 없다"와 혼동하면 안 된다.
     interlock_count: int | None = None
+    # 급기 풍량(CMH). migration 012. **방 경계 안**에 들어가는 급기구만 합산한 값이다.
+    airflow_cmh: float | None = None
+    area_m2: float | None = None
 
 
 @dataclass(frozen=True)
@@ -94,7 +97,8 @@ def load_rooms(cur, run_id: str) -> list[RoomView]:
     """room 테이블에서 한 run 의 방들을 RoomView 로 적재."""
     cur.execute(
         """SELECT room_no, name, pressure_name, floor, grade, plan_x, plan_y,
-                  pressure_pa, regime, regime_source, interlock_count, pres_x
+                  pressure_pa, regime, regime_source, interlock_count, pres_x,
+                  airflow_cmh, area_m2
              FROM room WHERE run_id=%s""",
         (run_id,),
     )
@@ -102,7 +106,8 @@ def load_rooms(cur, run_id: str) -> list[RoomView]:
         RoomView(room_no=r[0], name=r[1], pressure_name=r[2], floor=r[3],
                  grade=r[4], plan_x=r[5], plan_y=r[6],
                  pressure_pa=r[7], regime=r[8], regime_source=r[9],
-                 interlock_count=r[10], pres_x=r[11])
+                 interlock_count=r[10], pres_x=r[11],
+                 airflow_cmh=r[12], area_m2=r[13])
         for r in cur.fetchall()
     ]
 

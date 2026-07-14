@@ -67,6 +67,28 @@ class BoundaryResult:
     cell_mm: float = 50.0
     failed: list[str] = field(default_factory=list)
 
+    # ★좌표 → 방번호. **경계 안에 들어가는지**로 붙인다.
+    #   예전엔 '반경 안의 최근접 방'으로 붙였다. 그러면 72㎡ 충진실의 급기구가
+    #   1.5㎡ 전실에 붙는다(실제로 NC 3㎡ 방에 1,697 CMH = 187회/hr 이 붙었다).
+    #   방 경계를 이미 갖고 있는데 안 쓰고 있었다.
+    _lab: object = None
+    _minx: float = 0.0
+    _miny: float = 0.0
+    _by_lid: dict = field(default_factory=dict)
+
+    def room_at(self, x: float, y: float) -> str | None:
+        """이 좌표가 **어느 방 안**인가. 방 밖이면 None."""
+        if self._lab is None:
+            return None
+        import numpy as _np
+        lab = self._lab
+        px = int((x - self._minx) / self.cell_mm)
+        py = int((y - self._miny) / self.cell_mm)
+        h, w = lab.shape
+        if not (0 <= py < h and 0 <= px < w):
+            return None
+        return self._by_lid.get(int(lab[py, px]))
+
 
 def _iter_wall_segments(doc, layers: list[str], max_depth: int = 5,
                         skip_blocks: list[str] | None = None):
@@ -434,4 +456,9 @@ def build(doc, rooms: list[dict], profile: dict) -> BoundaryResult:
 
         touched = {x for pr in res.door_adjacency for x in pr}
         res.door_coverage = len(touched) / len(res.rooms) if res.rooms else 0.0
+
+    # 좌표 → 방 조회에 쓸 것들을 남긴다 (급기·리턴·장비 귀속에 쓴다)
+    res._lab = lab
+    res._minx, res._miny = minx, miny
+    res._by_lid = {rr.mask_id: rr.room_no for rr in res.rooms}
     return res

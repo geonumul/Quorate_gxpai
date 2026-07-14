@@ -22,6 +22,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 from gxpai.compliance.checks import (adj_001, adj_002, adj_003,  # noqa: E402
                                      adj_004, adj_005, pres_001, pres_002,
                                      pres_003, pres_004, pres_005)
+from gxpai.compliance.checks import hvac_001  # noqa: E402
 from gxpai.compliance.checks._model import (load_adjacency, load_pressure_rels,  # noqa: E402
                                             load_rooms)
 from gxpai.core.db import connect  # noqa: E402
@@ -72,6 +73,7 @@ CHECKS = [
     ("ADJ-003", lambda c: adj_003.evaluate(adj, rooms, c)),
     ("ADJ-004", lambda c: adj_004.evaluate(adj, rooms, c)),
     ("ADJ-005", lambda c: adj_005.evaluate(adj, rooms, c)),
+    ("HVAC-001", lambda c: hvac_001.evaluate(rooms, c)),
 ]
 
 for rid, fn in CHECKS:
@@ -102,6 +104,12 @@ for rid, fn in CHECKS:
             why.append("화살표 방 귀속·절대압력 둘 다 없음")
         if rid == "PRES-004" and not (linked and with_pa):
             why.append("화살표 방 귀속·절대압력 둘 다 있어야 대조 가능")
+        if rid == "HVAC-001":
+            if not (cfg.get("ach_by_grade") and cfg.get("ceiling_height_m")):
+                why.append("**자사 환기 기준 + 천장고가 없다** — 발주처가 줘야 한다. "
+                           "법정 수치(A 600회/hr)는 구 KGMP 해설서다. 쓰지 않는다")
+            elif not [r for r in rooms if r.airflow_cmh is not None]:
+                why.append("급기 풍량 없음")
         if rid == "PRES-005" and not gauged:
             why.append("차압계 도면 없음 — '차압계가 없다'와 혼동하면 안 된다")
         if rid == "ADJ-005" and not locked:
