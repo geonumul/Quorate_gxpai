@@ -33,6 +33,8 @@ from ..dxftext import iter_label_texts
 from .base import BaseExtractor, Record
 
 # (D) (C) (B) (A) (CNC) (NC) — 공백·전각 괄호 허용
+# 등급 표기. 사무소마다 다르다(`(D)` · `D급` · `Grade D` …)
+# → 프로파일 `grades.grade_regex` 로 덮어쓸 수 있다. 하드코딩하면 다음 사무소에서 0건이 된다.
 GRADE_RE = re.compile(r"^[\(（]\s*(A|B|C|D|CNC|NC)\s*[\)）]$", re.I)
 
 DEFAULT_MAX_D = 4000.0      # mm. 등급 라벨 ↔ 방번호 최대 거리
@@ -59,6 +61,8 @@ class GradeExtractor(BaseExtractor):
         entity_types = profile.get("label_entity_types", ["TEXT", "MTEXT"])
         num_re = re.compile(fp["room_no_regex"]) if fp.get("room_no_regex") else None
         bare_re = re.compile(fp["bare_no_regex"]) if fp.get("bare_no_regex") else None
+        grade_re = (re.compile(gcfg["grade_regex"], re.I)
+                    if gcfg.get("grade_regex") else GRADE_RE)
         max_d = float(gcfg.get("max_match_dist_mm", DEFAULT_MAX_D))
         below_penalty = float(gcfg.get("below_penalty", DEFAULT_BELOW_PENALTY))
 
@@ -70,9 +74,10 @@ class GradeExtractor(BaseExtractor):
         grades: list[tuple[float, float, str]] = []
         _skip = profile.get("label_exclude_blocks")
         for x, y, t, _h in iter_label_texts(doc, layers, entity_types, exclude_blocks=_skip):
-            m = GRADE_RE.match(t.strip())
+            m = grade_re.match(t.strip())
             if m:
-                grades.append((x, y, m.group(1).upper()))
+                # 캡처 그룹이 없는 정규식도 받는다(전체 문자열을 등급으로 본다)
+                grades.append((x, y, (m.group(1) if m.groups() else t).strip().upper()))
 
         numbers: list[tuple[float, float, str]] = []
         for x, y, t, _h in iter_label_texts(doc, num_layers, entity_types,
@@ -80,7 +85,7 @@ class GradeExtractor(BaseExtractor):
             if num_re:
                 mm = num_re.match(t)
                 if mm:
-                    numbers.append((x, y, mm.group(1)))
+                    numbers.append((x, y, mm.group(1) if mm.groups() else t))
                     continue
             if bare_re and bare_re.match(t):
                 numbers.append((x, y, t))

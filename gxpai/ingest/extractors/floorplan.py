@@ -48,7 +48,8 @@ class FloorplanExtractor(BaseExtractor):
         for x, y, t, _h in texts:
             m = num_re.match(t)
             if m:
-                numbers.append((x, y, m.group(1)))
+                # 캡처 그룹 없는 정규식(`^\d{4}$`)이면 group(1) 이 IndexError 로 죽는다
+                numbers.append((x, y, m.group(1) if m.groups() else t))
             elif bare_re.match(t):
                 numbers.append((x, y, t))
             elif t not in skip:
@@ -60,10 +61,22 @@ class FloorplanExtractor(BaseExtractor):
 
         records: list[Record] = []
         used = set()
+        # ★**이름 귀속은 배타적이지 않다** — 두 방번호가 같은 이름 텍스트를 둘 다 가져갈 수 있다.
+        #   그러면 한 방이 **옆방 이름을 훔친다**. 이름이 틀리면 그 방의 압력 유형·에어락·복도
+        #   판정이 전부 틀어진다(우리 규칙 상당수가 이름을 본다).
+        #
+        #   ⚠그런데 **기준 평면도에서 재 보니 0건이었다.** 이름 후보가 242개인데 방번호가 96개라
+        #     각자 자기 이름을 찾아간다. → **알고리즘을 바꾸지 않는다.**
+        #     근거 없이 배타 매칭으로 바꾸면 기준값(111방)만 흔들린다.
+        #
+        #   대신 **일어나면 알려준다.** 조용히 틀리는 것만은 막는다.
+        #   (방번호 충돌 감지기도 이렇게 만들었고, 첫 실행에서 진짜 결함 2건을 잡았다)
+        claimed: dict[int, list[str]] = {}
         for nx, ny, no in numbers:
             idx, name = match_name_to_anchor(nx, ny, names, max_d, above_max, penalty)
             if idx is not None:
                 used.add(idx)
+                claimed.setdefault(idx, []).append(no)
             records.append(Record(
                 kind="room",
                 payload={
@@ -90,4 +103,14 @@ class FloorplanExtractor(BaseExtractor):
                     "source": "floorplan_unnumbered",
                 },
             ))
+
+        # ★한 이름을 여러 방번호가 가져갔다 = 한 방이 **옆방 이름을 훔쳤다.**
+        #   기준 도면에선 0건이지만, 이름이 성긴 도면에서는 일어난다.
+        #   조용히 넘어가면 그 방의 압력 유형·에어락·복도 판정이 전부 틀어진다.
+        for idx, nos in claimed.items():
+            if len(nos) > 1:
+                records.append(Record(kind="name_conflict", payload={
+                    "name": names[idx][2], "room_nos": nos,
+                    "x": round(names[idx][0], 1), "y": round(names[idx][1], 1),
+                }))
         return records

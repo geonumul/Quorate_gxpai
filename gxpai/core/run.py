@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import time
+from pathlib import Path
 
 import ezdxf
 from ezdxf import recover
@@ -26,6 +27,16 @@ from .config import load_profile, raw_dir
 from .db import connect
 
 PIPELINE_VERSION = "0.1.0"
+
+# ★문 검출률이 이보다 낮으면 **문 데이터를 쓰지 않는다.**
+#   방에는 대개 문이 하나씩 있다. 이 값이 낮으면 도면에 문이 없어서가 아니라
+#   **우리 문 검출이 실패한 것**이다. 그런데도 쓰면 ADJ-001/002/003/004 가
+#   검출 못 한 문에 대해 "문이 없으니 위반 아님"으로 **진짜 위반을 숨긴다.**
+#
+#   ★예전엔 함수 **지역변수**여서 시험이 import 할 수 없었다. 그래서 시험이
+#   임계값을 손으로 다시 정의했고, **임계값을 0.1로 바꿔도 시험이 통과했다**(껍데기 시험).
+#   → 모듈 상수로 끌어올린다. 시험이 이 값을 실제로 태운다.
+DOOR_TRUST = 0.8
 
 # 발주처 확인이 필요한 미결 항목 (question 테이블 시드)
 _QUESTION_SEEDS = [
@@ -53,13 +64,67 @@ def _same_source_warning(drawings: list[dict]) -> str | None:
     return None
 
 
-def _read_dxf(path):
-    """DXF 로드. 손상 파일은 recover 모드 폴백 (R-E2: recover는 느리므로 폴백으로만)."""
+def _read_dxf(path, warnings: list[str] | None = None):
+    """DXF 로드. 손상 파일은 recover 모드 폴백 (R-E2: recover는 느리므로 폴백으로만).
+
+    ★단위계 검사를 **여기서** 한다. 호출부 7군데에 흩뿌리면 새 호출부에서 또 빠진다.
+    """
     try:
-        return ezdxf.readfile(path)
+        doc = ezdxf.readfile(path)
     except ezdxf.DXFStructureError:
         doc, _auditor = recover.readfile(path)
-        return doc
+    if warnings is not None:
+        w = check_units(doc, path)
+        if w and w not in warnings:
+            warnings.append(w)
+    return doc
+
+
+# $INSUNITS 코드 → (이름, mm 환산 배율). DXF 규격값이다.
+_INSUNITS = {
+    1: ("인치", 25.4), 2: ("피트", 304.8), 4: ("밀리미터", 1.0),
+    5: ("센티미터", 10.0), 6: ("미터", 1000.0),
+}
+
+
+def check_units(doc, path) -> str | None:
+    """도면의 **단위계**가 밀리미터인지 확인한다. 아니면 경고 문장을 돌려준다.
+
+    ★★우리 코드는 **전부 mm 를 가정한다.** 그런데 아무도 확인하지 않고 있었다.
+
+        격자 `cell_mm=50` · 틈메우기 `close_gap_mm` · 방 면적 상·하한(㎡)
+        화살표 탐색 반경 `MAX_DIST=6000` · 이름 매칭 `name_match_dist_mm`
+
+    **미터 단위 도면(INSUNITS=6)이 오면 전부 1000배 어긋난다.**
+    그런데 예외도 안 나고 0건도 아니다 — **그럴듯하게 틀린 숫자**가 나온다:
+
+        · 벽 선분이 전부 격자 한 칸(50mm) 안에 들어가 방이 **하나로 뭉친다**
+        · 면적 상한을 넘겨 방이 전부 **버려진다** (경계 0건)
+        · 아니면 면적이 1,000,000 배가 되어 **말도 안 되는 ㎡** 가 DB 에 들어간다
+
+    조용히 틀리는 게 제일 나쁘다. 우리가 가진 도면 3장은 전부 INSUNITS=4(mm) 라
+    **지금까지 운이 좋았을 뿐이다.** 다른 사무소 도면이 오면 터진다.
+
+    ⚠INSUNITS=0 은 '단위 없음'이다 — 드물지 않다. 그땐 **막지 말고 알린다**
+      (실제 좌표 크기로 상식성을 따로 볼 수 있다).
+    """
+    try:
+        code = int(doc.header.get("$INSUNITS", 0) or 0)
+    except (TypeError, ValueError):
+        code = 0
+    if code == 4:
+        return None                                  # 밀리미터 — 정상
+    name = _INSUNITS.get(code, (f"코드 {code}", None))[0]
+    if code == 0:
+        return (f"{Path(path).name}: 단위계($INSUNITS)가 **지정되지 않았다**(0). "
+                f"우리는 mm 로 가정하고 처리한다 — 좌표·면적이 상식적인지 확인하라")
+    scale = _INSUNITS.get(code, (None, None))[1]
+    return (f"{Path(path).name}: 단위계가 **{name}**($INSUNITS={code})다. "
+            f"우리 코드는 전부 **밀리미터**를 가정한다"
+            + (f" (1{name} = {scale:g}mm → 모든 거리·면적이 {scale:g}배 어긋난다)"
+               if scale else "")
+            + ". 방 경계·면적·화살표 귀속이 **조용히 틀린 값**을 낸다. "
+              "도면을 mm 로 변환해 다시 넣어라")
 
 
 def ingest(facility_id: str) -> dict:
@@ -98,15 +163,26 @@ def ingest(facility_id: str) -> dict:
               "gauge": 0, "interlock": 0, "airflow": 0}
 
     missing_files: list[str] = []
+    unit_warnings: list[str] = []       # ★단위계(mm) 위반 — 조용히 틀리면 안 된다
+    name_conflicts: list[dict] = []     # 한 이름을 두 방번호가 가져감 = 옆방 이름을 훔침
     for d in fac["drawings"]:
         path = raw / d["filename"]
         if not path.exists():
             missing_files.append(d["filename"])  # 조용히 건너뛰지 말고 기록(완결성 감사)
             continue
         if d["kind"] == "floorplan":
-            doc = _read_dxf(str(path))
+            doc = _read_dxf(str(path), unit_warnings)
             floor_doc = doc                      # 방 경계(벽) 추출에 다시 쓴다
             for rec in fp_ex.extract(doc, profile):
+                # ★**kind 를 확인한다.** 예전엔 추출기가 내는 걸 전부 방으로 취급했다 —
+                #   추출기가 새 레코드 종류를 하나라도 내면 **가짜 방**이 생긴다.
+                if rec.kind == "name_conflict":
+                    # 두 방번호가 같은 이름 텍스트를 가져갔다 = 한 방이 옆방 이름을 훔쳤다.
+                    # 기준 도면에선 0건이지만 이름이 성긴 도면에서는 일어난다.
+                    name_conflicts.append(rec.payload)
+                    continue
+                if rec.kind != "room":
+                    continue
                 rec.payload["source_drawing_id"] = d["id"]
                 floor_rooms.append(rec.payload)
             for rec in eq_ex.extract(doc, profile):
@@ -127,7 +203,7 @@ def ingest(facility_id: str) -> dict:
                     counts["pressure_unmatched"] += rec.payload["count"]
             counts["floorplan"] += 1
         elif d["kind"] == "pressure":
-            doc = _read_dxf(str(path))
+            doc = _read_dxf(str(path), unit_warnings)
             for rec in pr_ex.extract(doc, profile):
                 if rec.kind == "pressure_room":
                     rec.payload["source_drawing_id"] = d["id"]
@@ -142,7 +218,7 @@ def ingest(facility_id: str) -> dict:
         elif d["kind"] == "gauge":
             # ★차압계 배치도. **다른 시트**라서 좌표를 기준 시트로 맞춰 잘라 둬야 한다
             #   (scripts/cut_ref_sheet_aligned.py). 안 맞추면 전부 헛것이 된다.
-            doc = _read_dxf(str(path))
+            doc = _read_dxf(str(path), unit_warnings)
             for rec in ga_ex.extract(doc, profile):
                 gauges.append(rec.payload)
                 counts["gauge"] += 1
@@ -151,22 +227,22 @@ def ingest(facility_id: str) -> dict:
             #   단위는 도면이 명시했다(레이어 B-ZONE 의 '풍량(CMH)').
             #   ⚠환기 횟수(ACH) 규칙은 **만들지 않는다** — 현행 고시에 수치가 없다.
             #     자사 환기 기준 + 천장고가 오면 그때 만든다.
-            doc = _read_dxf(str(path))
+            doc = _read_dxf(str(path), unit_warnings)
             for rec in af_ex.extract(doc, profile):
                 airflows.append(rec.payload)
                 counts["airflow"] += 1
         elif d["kind"] == "interlock":
-            doc = _read_dxf(str(path))
+            doc = _read_dxf(str(path), unit_warnings)
             for rec in il_ex.extract(doc, profile):
                 interlocks.append(rec.payload)
                 counts["interlock"] += 1
         elif d["kind"] == "hvac":
-            doc = _read_dxf(str(path))
+            doc = _read_dxf(str(path), unit_warnings)
             for rec in hv_ex.extract(doc, profile):
                 ahus.append(rec.payload)
             counts["hvac"] += 1
         elif d["kind"] == "overview":
-            doc = _read_dxf(str(path))
+            doc = _read_dxf(str(path), unit_warnings)
             for rec in ov_ex.extract(doc, profile):
                 rec.payload["source_drawing_id"] = d["id"]
                 overview.append(rec.payload)
@@ -180,7 +256,23 @@ def ingest(facility_id: str) -> dict:
     if same_src:
         print(f"  ⚠ {same_src}")
 
-    merged = _merge(floor_rooms, pres_rooms)
+    # ★단위계 경고는 **크게** 띄운다. 요약 dict 에만 넣으면 아무도 안 본다.
+    #   미터 단위 도면은 예외도 0건도 아닌 **그럴듯하게 틀린 숫자**를 낸다.
+    for w in unit_warnings:
+        print(f"  ⚠⚠ 단위계: {w}")
+    for nc in name_conflicts:
+        print(f"  ⚠ 이름 충돌: '{nc['name']}' 를 방 {', '.join(nc['room_nos'])} 가 "
+              f"함께 가져갔다 — 한쪽은 **옆방 이름을 훔친 것**이다")
+
+    room_no_collisions: list[dict] = []      # 같은 방번호가 두 방에 → 한쪽이 사라진다
+    merged = _merge(floor_rooms, pres_rooms, room_no_collisions)
+    for c in room_no_collisions:
+        # ★조용히 덮어쓰지 않는다. 감지기를 만들자마자 기준 시설에서 2건이 나왔다 —
+        #   4504 가 '(N)타정4실' 과 '(N)타정2실 전실' **두 방**에 붙어 있다(6m 떨어져 있다).
+        #   그동안 한 방이 사라지고 있었는데 아무도 몰랐다.
+        d = f"{c['dist_mm']:,.0f}mm 떨어짐" if c.get("dist_mm") else "거리 미상"
+        print(f"  ⚠⚠ 방번호 충돌 {c['room_no']}: "
+              f"'{c['lost_name']}' 를 '{c['kept_name']}' 가 덮어씀 ({d})")
 
     # ── 병합된 방에 등급·절대압력·압력유형을 얹는다 ────────────────
     n_grade = apply_grades(merged, grade_recs)
@@ -216,6 +308,14 @@ def ingest(facility_id: str) -> dict:
                 r["boundary"] = br.polygon
                 r["boundary_method"] = "floodfill"
 
+        # ★장비도 **방 경계 안**에 들어가는지로 붙인다.
+        #   급기 풍량은 경계 기반으로 고쳤는데 **장비는 안 고쳤다**(반경 8,000mm 최근접).
+        #   72㎡ 충진실의 장비가 1.5㎡ 전실에 붙는다 — 풍량에서 겪은 것과 **완전히 같은 오귀속**.
+        for _eq in equipment:
+            _no = boundary_res.room_at(_eq.get("x"), _eq.get("y"))                 if (_eq.get("x") is not None and _eq.get("y") is not None) else None
+            if _no:
+                _eq["room_no_by_boundary"] = _no
+
         # ★급기 풍량을 **방 경계 안**에 들어가는지로 붙인다.
         #   예전엔 '반경 4m 최근접 방'이었다 → 72㎡ 충진실의 급기구가 1.5㎡ 전실에 붙었다
         #   (NC 3㎡ 방에 1,697 CMH = 환기 187회/hr 이라는 말도 안 되는 값이 나왔다).
@@ -231,6 +331,8 @@ def ingest(facility_id: str) -> dict:
     try:
         n_eq = _load(facility_id, run_id, profile_version, merged, equipment, ahus,
                      overview, arrows, ta_values)
+        # ★사라진 방을 기록한다. LBL-003 이 이걸 읽어 위반으로 보고한다.
+        _persist_room_no_conflicts(facility_id, run_id, room_no_collisions)
         _seed_questions(facility_id)
         # 인접 + 화살표↔방 귀속도 성공 판정에 포함(M8): 파생까지 끝나야 'done'.
         from ..geometry import adjacency, pressure_links
@@ -250,7 +352,6 @@ def ingest(facility_id: str) -> dict:
             #   → 검출률이 임계값 미만이면 None 을 넘겨 via_door 를 NULL 로 둔다.
             #     ADJ-001 이 벽 인접으로 폴백하고, 근거에 "문 정보 없음 · 보류"를 남긴다.
             #     판정을 포기하지도, 확정하지도 않는다.
-            DOOR_TRUST = 0.8
             cov = boundary_res.door_coverage
             dpairs = boundary_res.door_adjacency if cov >= DOOR_TRUST else None
             if boundary_res.door_adjacency and dpairs is None:
@@ -282,7 +383,8 @@ def ingest(facility_id: str) -> dict:
         "n_ahu": len(ahus),
         "n_overview_items": len(overview),
         "n_pressure_arrows": len(arrows),
-        "n_gauges": len(gauges),
+        # ★추출 개수와 **귀속 개수**를 나란히 찍는다. 개수만 세면 속는다.
+        "n_gauges": f"{n_gauge}/{len(gauges)}" if gauges else 0,
         "n_airflow": len(airflows),
         "grade_source": grade_src,
         "n_ta_values": len(ta_values),
@@ -294,6 +396,21 @@ def ingest(facility_id: str) -> dict:
         "regime_counts": regime_counts,          # protect/contain/hazard/neutral 분포
         "n_boundary_rooms": len(boundary_res.rooms) if boundary_res else 0,
         "boundary_failed": boundary_res.failed if boundary_res else [],
+        # ★벽으로 태우지 **못한** 기하 타입. 비어 있어야 정상이다.
+        #   기준 평면도에서 SPLINE·CIRCLE 등 88,356 개가 조용히 버려지고 있었다.
+        #   벽이 그 타입으로 그려진 도면이 오면 방이 뭉개지는데 로그 한 줄 안 남았다.
+        "boundary_unsupported": (boundary_res.unsupported_types
+                                 if boundary_res else {}),
+        # ★단위계(mm) 위반. 미터 단위 도면이 오면 **모든 거리·면적이 1000배 어긋난다.**
+        #   예외도 안 나고 0건도 아니다 — **그럴듯하게 틀린 숫자**가 나온다. 그게 제일 나쁘다.
+        "unit_warnings": unit_warnings,
+        # ★같은 방번호가 두 번 나왔다 = **한쪽이 덮어써져 사라졌다.**
+        #   비어 있어야 정상이다. 층마다 번호를 재사용하는 도면에서 터진다.
+        "room_no_collisions": room_no_collisions,
+        # ★한 이름 텍스트를 여러 방번호가 가져갔다 = 한 방이 **옆방 이름을 훔쳤다.**
+        #   기준 도면에선 0건(이름 후보 242 > 방번호 96). 이름이 성긴 도면에서 터진다.
+        #   이름이 틀리면 그 방의 압력 유형·에어락·복도 판정이 전부 틀어진다.
+        "name_conflicts": name_conflicts,
         "missing_drawings": missing_files,
     }
 
@@ -345,8 +462,19 @@ def apply_regimes(merged: list[dict], profile: dict) -> dict[str, int]:
     return counts
 
 
-def _merge(floor_rooms, pres_rooms) -> list[dict]:
-    """방번호를 키로 평면도/차압도 병합 (v0.1 merge_dataset 이식)."""
+def _merge(floor_rooms, pres_rooms, collisions: list[str] | None = None) -> list[dict]:
+    """방번호를 키로 평면도/차압도 병합 (v0.1 merge_dataset 이식).
+
+    ★**방번호 충돌을 조용히 덮어쓰고 있었다.**
+
+      기준 시설은 번호에 층이 들어간다(3101 = 3층, 4101 = 4층) → 충돌이 없다.
+      그런데 **층마다 101·102 로 매기는 사무소**가 오면 3층 101 과 4층 101 이 같은 키가 되어
+      **한쪽이 통째로 사라진다.** 예외도, 로그도, 0건도 아니다 — 방 개수가 조용히 줄 뿐이다.
+
+      우리 번호 체계가 마침 안전했을 뿐이다. → 충돌을 **세어서 알린다.**
+      (진짜 해법은 키를 `(floor, room_no)` 로 바꾸는 것인데, 그러면 층 판정이 틀린 방이
+       유령 방으로 갈라진다. 지금은 **감지**만 하고, 실제 충돌 도면이 오면 그때 고친다.)
+    """
     master: dict = {}
     for r in floor_rooms:
         if r["room_no"] is None:
@@ -354,6 +482,25 @@ def _merge(floor_rooms, pres_rooms) -> list[dict]:
             # 같은 좌표의 두 무번호 방은 여전히 한 항목으로 합쳐짐(현 데이터엔 발생 안 함).
             master[("_u", r["plan_x"], r["plan_y"])] = dict(r, pressure_name=None)
             continue
+        prev = master.get(r["room_no"])
+        if prev is not None and collisions is not None:
+            # ★거리로 **서로 다른 방**인지 판단한다.
+            #   멀리 떨어져 있으면 도면이 같은 번호를 두 방에 붙인 것이고(=결함),
+            #   가까우면 같은 방에 번호를 두 번 쓴 것이다(=무해한 중복 표기).
+            dist = None
+            if (prev.get("plan_x") is not None and r.get("plan_x") is not None
+                    and prev.get("plan_y") is not None and r.get("plan_y") is not None):
+                dist = math.hypot(r["plan_x"] - prev["plan_x"],
+                                  r["plan_y"] - prev["plan_y"])
+            collisions.append({
+                "room_no": r["room_no"],
+                # prev 가 덮어써져 사라진다(뒤에 온 r 이 이긴다)
+                "lost_name": prev.get("name"), "lost_floor": prev.get("floor"),
+                "lost_x": prev.get("plan_x"), "lost_y": prev.get("plan_y"),
+                "kept_name": r.get("name"), "kept_floor": r.get("floor"),
+                "kept_x": r.get("plan_x"), "kept_y": r.get("plan_y"),
+                "dist_mm": dist,
+            })
         master[r["room_no"]] = {
             "room_no": r["room_no"], "name": r["name"], "floor": r["floor"],
             "sheet": r["sheet"], "plan_x": r["plan_x"], "plan_y": r["plan_y"],
@@ -419,6 +566,13 @@ def _attach_airflow_by_boundary(rooms: list[dict], flows: list[dict], bres) -> i
 INTERLOCK_RADIUS_MM = 3000.0  # 인터락 선 중점에서 이 거리 안의 방에 귀속
 
 
+# ★귀속률이 이보다 낮으면 **좌표계가 안 맞은 것**이다. 0/false 로 채우지 말고 NULL 을 유지한다.
+#   (차압계·인터락은 **다른 시트**에서 온다. 시트마다 x 원점이 106,026mm 다르다.
+#    정렬 안 한 DXF 를 등록하면 전부 100m 밖 → 붙는 게 0개 →
+#    "전 방이 인터락 0개" · "전 구간 차압계 없음" → **critical 거짓 위반이 쏟아진다**)
+ATTACH_MIN_RATE = 0.3
+
+
 def _attach_interlocks(rooms: list[dict], locks: list[dict]) -> int:
     """인터락 선의 중점을 **가장 가까운 방 하나**에 붙인다.
 
@@ -426,21 +580,40 @@ def _attach_interlocks(rooms: list[dict], locks: list[dict]) -> int:
       그래서 '가장 가까운 하나'에만 붙이고, 반경을 넘으면 붙이지 않는다.
       귀속이 의심스러우면 규칙이 '보류'로 내보낸다. 조용히 틀리지 않는다.
     """
-    pts = [(r, r.get("plan_x") or r.get("x"), r.get("plan_y") or r.get("y")) for r in rooms]
-    pts = [(r, x, y) for r, x, y in pts if x is not None and y is not None]
-    for r, _x, _y in pts:
-        r.setdefault("interlock_count", 0)
-    n = 0
+    # ★`or` 를 쓰면 좌표 0.0 이 falsy 라 탈락한다. 그리고 `"x"` 키는 병합 방에 없다.
+    pts = []
+    for r in rooms:
+        x, y = r.get("plan_x"), r.get("plan_y")
+        if x is None or y is None:
+            x, y = r.get("pres_x"), r.get("pres_y")
+        if x is not None and y is not None:
+            pts.append([r, x, y])
+    if not pts:
+        return 0
+
+    got: dict[int, int] = {}
     for lk in locks:
         cand = [(math.hypot(x - lk["x"], y - lk["y"]), i)
-                for i, (r, x, y) in enumerate(pts)]
-        if not cand:
-            continue
+                for i, (_r, x, y) in enumerate(pts)]
         d, i = min(cand)
         if d <= INTERLOCK_RADIUS_MM:
-            pts[i][0]["interlock_count"] = pts[i][0].get("interlock_count", 0) + 1
-            n += 1
-    return n
+            got[i] = got.get(i, 0) + 1
+
+    rate = len(got) and (sum(got.values()) / len(locks))
+    if not locks or rate < ATTACH_MIN_RATE:
+        # ★★붙은 게 거의 없다 = **좌표계가 안 맞은 것**이다.
+        #   0 으로 채우면 "인터락이 하나도 없다"는 **거짓 사실**이 되어
+        #   A/B 에 연결된 **모든 에어락이 critical 거짓 위반**이 된다.
+        #   → interlock_count 를 **NULL 로 남긴다**(규칙이 판정하지 않는다).
+        print(f"  ⚠ 인터락 {len(locks)}개 중 방에 붙은 것 {sum(got.values())}개 "
+              f"({rate:.0%}) — **좌표계가 안 맞는다.** 다른 시트에서 왔다면 "
+              f"scripts/cut_ref_sheet_aligned.py 로 정렬할 것. "
+              f"interlock_count 를 NULL 로 둔다(판정 안 함)")
+        return 0
+
+    for i, (r, _x, _y) in enumerate(pts):
+        r["interlock_count"] = got.get(i, 0)
+    return sum(got.values())
 
 
 GAUGE_RADIUS_MM = 3000.0     # 화살표에서 이 거리 안의 차압계를 '그 구간의 것'으로 본다
@@ -456,17 +629,29 @@ def _attach_gauges(run_id: str, gauges: list[dict]) -> int:
         cur.execute("SELECT id, evidence_x, evidence_y FROM pressure_relation WHERE run_id=%s",
                     (run_id,))
         rows = cur.fetchall()
-        n = 0
+        hits = []
         for pr_id, ex, ey in rows:
             best, bk = None, None
             for g in gauges:
                 d = math.hypot(g["x"] - ex, g["y"] - ey)
                 if d <= GAUGE_RADIUS_MM and (best is None or d < best):
                     best, bk = d, g["gauge_kind"]
+            hits.append((pr_id, best is not None, bk))
+
+        n = sum(1 for _i, ok, _k in hits if ok)
+        rate = n / len(gauges) if gauges else 0.0
+        if rate < ATTACH_MIN_RATE:
+            # ★★차압계가 거의 안 붙었다 = 좌표계가 안 맞은 것이다.
+            #   false 로 채우면 **청정실 경계 전 구간이 "차압계 없음" 위반**이 된다.
+            #   → has_gauge 를 **NULL 로 남긴다**(PRES-005 가 판정하지 않는다).
+            print(f"  ⚠ 차압계 {len(gauges)}개 중 화살표에 붙은 것 {n}개 ({rate:.0%}) — "
+                  f"**좌표계가 안 맞는다.** has_gauge 를 NULL 로 둔다(판정 안 함)")
+            conn.rollback()
+            return 0
+
+        for pr_id, ok, bk in hits:
             cur.execute("UPDATE pressure_relation SET has_gauge=%s, gauge_kind=%s WHERE id=%s",
-                        (best is not None, bk, pr_id))
-            if best is not None:
-                n += 1
+                        (ok, bk, pr_id))
         conn.commit()
         return n
 
@@ -489,6 +674,36 @@ def _finish_run(run_id, status, error=None) -> None:
             "UPDATE run SET status=%s, finished_at=now(), error=%s WHERE id=%s",
             (status, error, run_id),
         )
+        conn.commit()
+
+
+def _persist_room_no_conflicts(facility_id: str, run_id: str,
+                               conflicts: list[dict]) -> None:
+    """방번호 충돌을 남긴다 — **우리 버그가 아니라 도면의 결함**이다.
+
+    감지기를 만들자마자 기준 시설에서 2건이 나왔다. 그동안 `_merge` 가 한쪽을
+    **조용히 덮어썼다.** 방이 하나 사라지는데 예외도 로그도 없었다.
+
+    병합 동작(한쪽이 이긴다)은 그대로 둔다 — 방번호는 우리 데이터의 **키**라
+    중복을 허용하면 화살표·차압 관계가 어느 방을 가리키는지 알 수 없게 된다.
+    **버리되, 버렸다는 사실을 기록한다.** LBL-003 이 이걸 읽어 위반으로 보고한다.
+    """
+    if not conflicts:
+        return
+    with connect() as conn, conn.cursor() as cur:
+        for c in conflicts:
+            cur.execute(
+                """INSERT INTO room_no_conflict
+                       (run_id, facility_id, room_no,
+                        kept_name, kept_floor, kept_x, kept_y,
+                        lost_name, lost_floor, lost_x, lost_y, dist_mm)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (run_id, facility_id, c["room_no"],
+                 c.get("kept_name"), c.get("kept_floor"),
+                 c.get("kept_x"), c.get("kept_y"),
+                 c.get("lost_name"), c.get("lost_floor"),
+                 c.get("lost_x"), c.get("lost_y"), c.get("dist_mm")),
+            )
         conn.commit()
 
 

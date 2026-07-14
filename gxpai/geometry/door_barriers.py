@@ -98,6 +98,21 @@ def iter_door_arcs(doc, door_layers: list[str], max_depth: int = 4):
                 q0 = mat.transform((p0[0], p0[1], 0.0))
                 q1 = mat.transform((p1[0], p1[1], 0.0))
                 cc, p0, p1 = (cc.x, cc.y), (q0.x, q0.y), (q1.x, q1.y)
+
+                # ★★**거울반사(xscale<0)면 호의 방향이 뒤집힌다.**
+                #
+                #   DXF 의 ARC 는 **항상 반시계**로 start_angle → end_angle 이다.
+                #   그런데 거울반사된 블록 안에서는 세계좌표 기준으로 **시계방향**이 된다.
+                #
+                #   door_swing 은 `(a1 - a0) % 360` 으로 **늘 반시계**로 훑는다.
+                #   → 거울반사된 90° 문이 **270° 부채꼴**로 뒤집혀 검사된다.
+                #     문이 지나가지도 않는 반대편에서 기둥을 찾아내 **거짓 "못 열림"** 을 낸다.
+                #
+                #   화살촉에서 이미 당한 것과 **똑같은 함정**이다(28개 중 9개를 거꾸로 읽었다).
+                #   → 반사면 두 끝점을 **맞바꾼다.** 그러면 반시계 훑기가 다시 맞는다.
+                r0, r1 = mat.get_row(0), mat.get_row(1)
+                if (r0[0] * r1[1] - r0[1] * r1[0]) < 0:      # 2×2 행렬식 < 0 = 반사
+                    p0, p1 = p1, p0
             yield (cc, p0, p1)
 
     yield from walk(doc.modelspace(), None, None, 0)

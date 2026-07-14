@@ -35,7 +35,9 @@ from ..dxftext import iter_label_texts
 from .base import BaseExtractor, Record
 
 # "25Pa", "0 Pa", "-5pa" — 반드시 Pa 접미가 있어야 한다(TA 풍량과 구분)
-PA_RE = re.compile(r"^(-?\d+(?:\.\d+)?)\s*(?:Pa|㎩)$", re.I)
+# 절대압력 표기. 사무소마다 다르다 → 프로파일 `pressure_value.pa_regex` 로 덮어쓸 수 있다.
+# `+15Pa`(명시적 +) 도 받는다 — 예전엔 `-` 만 받아서 양수 부호가 붙으면 **조용히 놓쳤다.**
+PA_RE = re.compile(r"^([+-]?\d+(?:\.\d+)?)\s*(?:Pa|㎩)$", re.I)
 
 DEFAULT_MAX_D = 5000.0        # mm
 DEFAULT_ABOVE_PENALTY = 2.0   # 압력이 방번호 '위'에 있으면 변형 배치 → 벌점
@@ -57,6 +59,7 @@ class PressureValueExtractor(BaseExtractor):
         entity_types = profile.get("label_entity_types", ["TEXT", "MTEXT"])
         num_re = re.compile(fp["room_no_regex"]) if fp.get("room_no_regex") else None
         bare_re = re.compile(fp["bare_no_regex"]) if fp.get("bare_no_regex") else None
+        pa_re = re.compile(cfg["pa_regex"], re.I) if cfg.get("pa_regex") else PA_RE
         max_d = float(cfg.get("max_match_dist_mm", DEFAULT_MAX_D))
         above_penalty = float(cfg.get("above_penalty", DEFAULT_ABOVE_PENALTY))
 
@@ -68,7 +71,7 @@ class PressureValueExtractor(BaseExtractor):
 
         pas: list[tuple[float, float, float]] = []
         for x, y, t, _h in pa_texts:
-            m = PA_RE.match(t.strip().replace(" ", ""))
+            m = pa_re.match(t.strip().replace(" ", ""))
             if m:
                 pas.append((x, y, float(m.group(1))))
 
@@ -77,7 +80,10 @@ class PressureValueExtractor(BaseExtractor):
             if num_re:
                 m = num_re.match(t)
                 if m:
-                    numbers.append((x, y, m.group(1)))
+                    # ★캡처 그룹이 없는 정규식이면 `m.group(1)` 이 **IndexError 로 죽는다.**
+                    #   pressure.py 는 이걸 방어해 뒀는데 **여기만 뚫려 있었다.**
+                    #   프로파일에 `room_no_regex: '^\d{4}$'`(그룹 없음)라고 쓰면 터진다.
+                    numbers.append((x, y, m.group(1) if m.groups() else t))
                     continue
             if bare_re and bare_re.match(t):
                 numbers.append((x, y, t))
