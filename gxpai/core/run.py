@@ -187,6 +187,14 @@ def ingest(facility_id: str) -> dict:
     n_pa = apply_pressures(merged, pa_recs)
     regime_counts = apply_regimes(merged, profile)
 
+    # ★등급 구역 — 도면에 등급이 없는 것은 **정상**이다 (1차 미팅 대표님:
+    #   "방별로는 안 하고 … 구역 … 나중에 'a부터 b는 그레이드 B' 이렇게 해주면
+    #    [AI]가 알아서 가게끔 해야죠").
+    #   나는 이걸 '도면 결함·최대 병목' 이라고 잘못 써왔다. 결함이 아니다.
+    #   → 프로파일의 grade_zones(사람이 지정) → 제형 기본값 순으로 채운다.
+    from .grade_zones import apply_grade_zones
+    grade_src = apply_grade_zones(merged, profile)
+
     # ── 인터락을 방에 붙인다 ────────────────────────────────────
     # ★인터락 도면이 없는 시설이면 interlock_count 를 **NULL 로 둔다**.
     #   0 으로 채우면 "인터락이 하나도 없다"는 거짓 사실이 되어 전 에어락이 위반이 된다.
@@ -271,6 +279,7 @@ def ingest(facility_id: str) -> dict:
         "n_pressure_arrows": len(arrows),
         "n_gauges": len(gauges),
         "n_airflow": len(airflows),
+        "grade_source": grade_src,
         "n_ta_values": len(ta_values),
         "n_adjacency": n_adj,
         "adjacency_method": adj_method,          # polygon(정밀) | nearest(근사)
@@ -483,9 +492,9 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
                                      source_drawing_id, review_status,
                                      grade, pressure_pa, regime, regime_source,
                                      area_m2, boundary, boundary_method, interlock_count,
-                                     airflow_cmh)
+                                     airflow_cmh, grade_source)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'unreviewed',
-                           %s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                           %s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
                 (facility_id, run_id, r.get("room_no"), r.get("name"), r.get("pressure_name"),
                  r.get("floor"), r.get("sheet"), r.get("plan_x"), r.get("plan_y"),
                  r.get("pres_x"), r.get("pres_y"), r.get("source_drawing_id"),
@@ -497,7 +506,9 @@ def _load(facility_id, run_id, profile_version, rooms, equipment, ahus, overview
                  #   거짓 사실이 되어 전 에어락이 위반이 된다.
                  r.get("interlock_count"),
                  # 급기 풍량(CMH). 규칙은 없다 — 데이터로만 둔다.
-                 r.get("airflow_cmh")),
+                 r.get("airflow_cmh"),
+                 # 등급이 **어디서 왔나**: drawing / zone / product_default
+                 r.get("grade_source")),
             )
             rid = cur.fetchone()[0]
             room_points.append((rid, r.get("plan_x"), r.get("plan_y")))
