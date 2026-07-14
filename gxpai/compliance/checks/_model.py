@@ -50,6 +50,10 @@ class RoomView:
     # 급기 풍량(CMH). migration 012. **방 경계 안**에 들어가는 급기구만 합산한 값이다.
     airflow_cmh: float | None = None
     area_m2: float | None = None
+    # ★등급이 **어디서 왔나** (migration 013): drawing / zone / product_default
+    #   `product_default` 는 **추정**이다(제형에서 온 기본값). 도면에 적힌 등급과 **같이 취급하면 안 된다.**
+    #   규칙이 근거(evidence)에 이 값을 실어 보내야 검수자가 구분할 수 있다.
+    grade_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -98,16 +102,20 @@ def load_rooms(cur, run_id: str) -> list[RoomView]:
     cur.execute(
         """SELECT room_no, name, pressure_name, floor, grade, plan_x, plan_y,
                   pressure_pa, regime, regime_source, interlock_count, pres_x,
-                  airflow_cmh, area_m2
+                  airflow_cmh, area_m2, grade_source
              FROM room WHERE run_id=%s""",
         (run_id,),
     )
     return [
         RoomView(room_no=r[0], name=r[1], pressure_name=r[2], floor=r[3],
-                 grade=r[4], plan_x=r[5], plan_y=r[6],
+                 grade=(r[4].strip().upper() if isinstance(r[4], str) else r[4]),
+                 plan_x=r[5], plan_y=r[6],
                  pressure_pa=r[7], regime=r[8], regime_source=r[9],
                  interlock_count=r[10], pres_x=r[11],
-                 airflow_cmh=r[12], area_m2=r[13])
+                 airflow_cmh=r[12], area_m2=r[13],
+                 # ★등급 문자열 정규화 — `(D)` 대신 ` d` 나 `D ` 가 오면 rank 사전에 없어
+                 #   등급 규칙 6개가 **전부 조용히 0건**을 냈다. 한 곳에서 정규화한다.
+                 grade_source=r[14])
         for r in cur.fetchall()
     ]
 

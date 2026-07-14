@@ -68,7 +68,9 @@ def evaluate(rels: list[PressureRel], rooms: list[RoomView], cfg: dict) -> list[
             continue
 
         # ★조문의 범위: **청정실**과 주변구역 사이. CNC·NC 끼리는 대상이 아니다.
-        ranks = [rank.get(x.grade) for x in (hi, lo) if x.grade]
+        # ★모르는 등급 문자열(`Grade D`·`d`·`D `)이 오면 `rank.get` 이 None 을 돌려
+        #   `max([None, 2])` 에서 **TypeError 로 엔진이 죽었다.** 다른 규칙은 방어했는데 여기만 뚫려 있었다.
+        ranks = [rank[x.grade] for x in (hi, lo) if x.grade and x.grade in rank]
         if not ranks or max(ranks) < clean_min:
             continue
 

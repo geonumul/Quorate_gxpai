@@ -38,23 +38,31 @@ from collections import deque
 from ._model import AdjPair, RoomView, load_adjacency, load_rooms
 
 # 갱의실·에어락 — 조문이 말하는 '통과해야 하는 관문'
-GOWN_WORDS = ("갱의", "탈의", "에어락", "에어록", "air lock", "airlock", "전실",
-              "샤워", "손세정", "손씻", "세면")
+# ★패스박스·이송해치가 빠져 있었다. 조문 자체가 "장비와 원자재는 **에어락**을 통해 이동"
+#   이라고 그것을 요구하는데, 관문으로 안 세면 **거짓 위반**(갱의실 우회)이 난다.
+GOWN_WORDS = ("갱의", "탈의", "에어락", "에어록", "air lock", "airlock", "AIRLOCK", "전실",
+              "샤워", "손세정", "손씻", "세면", "에어샤워", "ANTEROOM",
+              "패스박스", "pass box", "PASSBOX", "PASS-BOX", "해치", "hatch")
 # 청정등급 순위 (클수록 깨끗)
 DEFAULT_RANK = {"A": 5, "B": 4, "C": 3, "D": 2, "CNC": 1, "NC": 0}
 
 
 def is_gowning(name: str | None, words=GOWN_WORDS) -> bool:
-    """★`무균 **충전실**` 은 '전실'을 품고 있지만 관문이 아니다.
+    """관문(갱의실·에어락·전실·패스박스)인가.
 
-    관문으로 오인하면 그래프에서 그 노드를 **끊어 버려** 우회로를 못 찾는다 —
-    **진짜 위반을 숨긴다.** 시험이 잡았다.
+    ★`무균 **충전실**` 은 '전실'을 품고 있지만 관문이 아니다 →
+      관문으로 오인하면 그래프에서 노드를 끊어 **진짜 위반을 숨긴다.**
+    ★그런데 `캡슐충전실 **전실**` 은 **진짜 관문**이다 →
+      부정을 **머리말로만** 해야 한다. 무차별 부분문자열로 걸렀다가 이걸 부정했다.
     """
-    from ._regime import NOT_AIRLOCK
-    n = (name or "").replace(" ", "").lower()
-    if any(w in n for w in NOT_AIRLOCK):
+    from ._regime import NOT_AIRLOCK, head_form
+
+    h = head_form(name)
+    if not h:
         return False
-    return any(w.replace(" ", "").lower() in n for w in words)
+    if any(h.endswith(w.upper()) for w in NOT_AIRLOCK):
+        return False
+    return any(w.replace(" ", "").upper() in h for w in words)
 
 
 def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict) -> list[dict]:
@@ -76,14 +84,33 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict) -> list[dict]
     def rk(r: RoomView) -> int | None:
         return rank.get(r.grade) if r.grade else None
 
+    # ★★`dirty` 가 **영구히 비어 있었다.**
+    #
+    #   `dirty` 를 "등급이 있고 등급이 낮은 방"으로만 정의했다. 그런데 등급을 채우는
+    #   `grade_zones.apply_grade_zones()` 는 **복도·기계실·보관소에 등급을 주지 않는다**
+    #   (대표님: "일반 사무 공간, 거기는 차압 관리 안 해요").
+    #   → 일반복도·기계실이 `dirty` 에서 빠져 **비청정 구역이 0개** → `return []`.
+    #     **갱의실 우회 검사가 영구히 0건**이고 리포트엔 "위반 없음"으로 찍혔다.
+    #     (기준 시설에서 실제로 청정실 86 · 비청정실 **0** 이었다)
+    #
+    #   등급이 없는 방은 두 종류다:
+    #     · **관리 대상이 아닌 구역**(복도·기계실·보관소) → **비청정**이다. 여기서 들어온다
+    #     · 이름을 못 읽어 모르는 방                    → **모른다.** 판정에서 뺀다
+    from ._regime import NEUTRAL, is_corridor, resolve_regime
+
     clean, dirty = set(), set()
     for no, r in view.items():
         if is_gowning(r.name, words):
             continue                      # 갱의실은 관문이지 목적지도 출발지도 아니다
         k = rk(r)
-        if k is None:
-            continue                      # 등급 미상 → 어느 쪽인지 모른다. 판정에서 뺀다
-        (clean if k >= clean_min else dirty).add(no)
+        if k is not None:
+            (clean if k >= clean_min else dirty).add(no)
+            continue
+        # 등급이 없다 → 관리 대상이 아닌 구역이면 **비청정**이다
+        reg = r.regime or resolve_regime(r.name, None, None, no)[0]
+        if reg == NEUTRAL or is_corridor(r.name):
+            dirty.add(no)
+        # 그 외(이름을 못 읽었거나 등급 미상인 공정실)는 판정에서 뺀다
 
     if not clean or not dirty:
         return []

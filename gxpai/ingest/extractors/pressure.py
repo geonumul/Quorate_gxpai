@@ -108,25 +108,39 @@ class PressureExtractor(BaseExtractor):
         #
         # ★레이어 이름이 곧 **차압 설정값**이다: 'Air Flow 10Pa' / 'Air Flow 15Pa' /
         #   'Air Flow no차압'. 도면이 구간별 목표 차압을 직접 말해주는데 예전엔 버렸다.
+        # ★★**블록 재귀로 바꿨다.** 예전엔 `doc.modelspace()` 만 훑었다.
+        #   방 라벨·벽·문은 재귀로 고쳤는데 **화살표만 안 고쳤다.**
+        #   같은 도면에서 화살표가 시트 블록 안에 있으면 **화살표 0개** → pressure_relation 이
+        #   비고 → **PRES 규칙 전부가 조용히 "위반 없음"처럼 보인다.**
+        #
+        #   ⚠재귀를 켜면 블록 안 구성 선분(507개)까지 나온다 → **INSERT 만** 집는다.
+        #   ⚠좌표도 matrix44 로 변환한다. 직접 계산하면 **거울반사**를 놓친다.
+        from ..blockwalk import walk, world_point
+
         prefix = pr.get("arrow_block_prefix", "")
         arrow_layers = set(pr.get("arrow_layers") or [])
-        for e in doc.modelspace():
+        for e, mat, lay in walk(doc, yield_inserts=True):
             if e.dxftype() != "INSERT":
                 continue
-            if arrow_layers and e.dxf.layer not in arrow_layers:
+            if arrow_layers and lay not in arrow_layers:
                 continue
             if not arrow_layers and not e.dxf.name.startswith(prefix):
                 continue
             blk = doc.blocks.get(e.dxf.name)
             hd = arrowgeom.head_deg(e, blk) if blk is not None else None
+            # 블록 안 화살표면 세계각도로 다시 변환한다
+            if hd is not None and mat is not None:
+                from ..blockwalk import world_angle
+                hd = world_angle(hd, mat)
+            x, y = world_point(e.dxf.insert, mat)
             records.append(Record(kind="pressure_arrow", payload={
-                "x": round(e.dxf.insert.x, 1), "y": round(e.dxf.insert.y, 1),
+                "x": round(x, 1), "y": round(y, 1),
                 "rotation_deg": round(e.dxf.rotation, 1),
                 # None 이면 화살촉을 못 읽은 것 — 추측해 채우지 않는다. 규칙이 건너뛴다.
                 "head_deg": round(hd, 1) if hd is not None else None,
-                "layer": e.dxf.layer,
-                "setpoint_pa": _setpoint_from_layer(e.dxf.layer),
-                "floor": floor_of(e.dxf.insert.x),
+                "layer": lay,
+                "setpoint_pa": _setpoint_from_layer(lay),
+                "floor": floor_of(x),
             }))
         return records
 

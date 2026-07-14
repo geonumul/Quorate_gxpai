@@ -228,14 +228,29 @@ def is_airlock(name: str | None, words=AIRLOCK_WORDS,
                not_words=NOT_AIRLOCK) -> bool:
     """에어락·전실·패스박스인가.
 
-    ★`충전실`·`변전실` 처럼 **'전실'을 품고 있지만 에어락이 아닌** 낱말을 먼저 걸러낸다.
+    ★★부정 낱말(`충전실`·`변전실`)은 **머리말로만** 걸러야 한다. 무차별 부분문자열로
+      걸렀다가 **진짜 에어락을 부정하는 새 버그**를 만들었다:
+
+          `캡슐충전실 전실`  = 충전실의 **에어락**인데 → '충전실'이 들어 있다고 부정
+          (기준 시설에 `타정1실 전실` 같은 이름이 6개나 있다. `캡슐충전실 전실`도 나올 수 있다)
+
+      그러면 무슨 일이 나나 — **셋 다 나쁘다**:
+          ADJ-001  예외 처리가 안 돼 **거짓 위반**(등급 급변)
+          ADJ-002  관문으로 안 끊어 **거짓 위반**(갱의실 우회)
+          ADJ-005  에어락이 아니라며 인터락 검사에서 빼 **진짜 위반을 놓침**
+
+      → 한국어는 **마지막 명사가 머리말**이다. `캡슐충전실 전실` 의 머리말은 '전실'이고,
+        `무균 충전실` 의 머리말은 '충전실'이다. **머리말로 가른다.**
     """
     if not name:
         return False
-    n = name.replace(" ", "").lower()
-    if any(w.replace(" ", "").lower() in n for w in not_words):
+    h = head_form(name)                   # 괄호·숫자·공백 제거 + 대문자
+    if not h:
         return False
-    return any(w.replace(" ", "").lower() in n for w in words)
+    # 부정: **머리말이** 충전실·변전실 …이면 에어락이 아니다
+    if any(h.endswith(w.upper()) for w in not_words):
+        return False
+    return any(w.replace(" ", "").upper() in h for w in words)
 
 
 def extend_from_profile(profile: dict) -> None:

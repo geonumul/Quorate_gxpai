@@ -25,7 +25,10 @@ from gxpai.compliance.checks import (adj_001, adj_002, adj_003,  # noqa: E402
 from gxpai.compliance.checks import hvac_001  # noqa: E402
 from gxpai.compliance.checks._model import (load_adjacency, load_pressure_rels,  # noqa: E402
                                             load_rooms)
+from gxpai.compliance.checks._scope import applies, product_scope, why_not  # noqa: E402
+from gxpai.core.config import load_profile  # noqa: E402
 from gxpai.core.db import connect  # noqa: E402
+from gxpai.core import registry  # noqa: E402
 
 facility = sys.argv[1] if len(sys.argv) > 1 else "f_1ae3a266"
 rules = {r["id"]: r for r in yaml.safe_load(
@@ -76,9 +79,20 @@ CHECKS = [
     ("HVAC-001", lambda c: hvac_001.evaluate(rooms, c)),
 ]
 
+# ★★제형 게이트 — **무균 조문으로 완제 시설을 판정하면 안 된다.**
+#   코퍼스 확인: 별표17(완제)에 '청정등급'·'차압계'·'인터락' 조문이 **0건**이다.
+_fac = registry.get_facility(facility) or {}
+_pt = _fac.get("product_type") or (load_profile(_fac.get("profile_id") or "") or {}).get("product_type")
+_scope = product_scope(_pt)
+print(f"  제형: {_pt or '미상'} → {_scope or '판정 불가'}\n")
+
 for rid, fn in CHECKS:
     rule = rules.get(rid, {})
     cfg = dict(rule.get("config") or {})
+    if not applies(cfg, _scope):
+        print(f"▸ {rid}  ⊘ **적용 대상 아님**")
+        print(f"     {why_not(cfg, _scope, _pt)}\n")
+        continue
     cfg["enabled"] = True                       # 미리보기에서만 켠다(DB 미기록)
     try:
         found = fn(cfg)

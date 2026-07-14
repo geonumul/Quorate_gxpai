@@ -53,8 +53,21 @@ def is_toilet(name: str | None) -> bool:
 
 
 def is_annex(name: str | None) -> bool:
-    """부대구역(갱의·샤워·전실·복도 등). 작업소가 아니다."""
-    return _has(name, ANNEX_WORDS)
+    """부대구역(갱의·샤워·전실·복도 등). 작업소가 아니다.
+
+    ★★`캡슐충전실` 이 '전실'을 품고 있다고 **부대구역으로 오인**하면
+      **화장실이 작업소와 직결된 명백한 위반(별표17 3.6 나)을 놓친다.**
+      `_regime.is_airlock` 과 같은 병이었다 — 머리말로 갈라야 한다.
+    """
+    from ._regime import NOT_AIRLOCK, head_form
+
+    h = head_form(name)
+    if not h:
+        return False
+    # `충전실`·`변전실` 은 부대구역이 아니다 (머리말로 가른다)
+    if any(h.endswith(w.upper()) for w in NOT_AIRLOCK):
+        return False
+    return any(w.replace(" ", "").upper() in h for w in ANNEX_WORDS)
 
 
 def classify_target(r: RoomView, overrides: dict | None = None) -> str | None:

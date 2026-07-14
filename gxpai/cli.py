@@ -185,6 +185,14 @@ def _cmd_validate(args) -> int:
     print(f"  위반 총 {r['total']}건")
     for rule_id, n in r["by_rule"].items():
         print(f"    {rule_id}: {n}")
+    # ★"0건"과 "잠김"과 "적용 대상 아님"은 **완전히 다르다.**
+    #   구분하지 않으면 읽는 사람이 "검사했는데 깨끗하다"로 오해한다.
+    if r.get("gated"):
+        print(f"  🔒 게이트 잠김(컨설턴트 미검수 — 검사 안 함): {', '.join(r['gated'])}")
+    if r.get("not_applicable"):
+        print("  ⊘ 적용 대상 아님 (제형이 다른 조문):")
+        for m in r["not_applicable"]:
+            print(f"      {m}")
     if r["skipped"]:
         print(f"  건너뜀(미구현): {', '.join(r['skipped'])}")
     return 0

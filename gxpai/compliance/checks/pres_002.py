@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from ._model import (AdjPair, PressureRel, RoomView, load_adjacency,
                      load_pressure_rels, load_rooms)
-from ._regime import NEUTRAL, resolve_regime
+from ._regime import NEUTRAL, is_corridor, resolve_regime
 
 
 def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
@@ -57,8 +57,15 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
         r = view[no]
         return r.regime or resolve_regime(r.name, r.grade, overrides, no)[0]
 
-    # 기준서가 없으면 '미설정' 자체가 위반 — 단, 압력 데이터가 있을 때만 말이 된다
-    if diff_range is None and same_range is None:
+    # ★도면 화살표 레이어가 구간별 설정값을 갖고 있으면(`Air Flow 15Pa`) **그것이 기준**이다.
+    #   그런데 이 조기 반환이 그 확인보다 **먼저** 와서, 설정값이 다 있는 도면에도
+    #   "차압 기준 미설정" 위반을 냈다. 같은 파일이 스스로 "도면 설정값이 있으면 그것이
+    #   기준이다(설계사가 정한 값 = 사실상의 자사 기준)"라고 적어 놓고 어겼다.
+    has_setpoint = bool(rels) and any(
+        r.setpoint_pa is not None and not r.approx for r in (rels or []))
+
+    # 기준서가 없으면 '미설정' 자체가 위반 — 단, 압력 데이터가 있고 **도면 설정값도 없을 때만**
+    if diff_range is None and same_range is None and not has_setpoint:
         has_pa = any(r.pressure_pa is not None for r in rooms)
         if has_pa:
             return [{
@@ -95,7 +102,7 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
             if r.setpoint_pa is not None:
                 # 같은 구간에 화살표가 둘이면 큰 쪽(엄격한 쪽)을 남긴다
                 setpoint[k] = max(setpoint.get(k, 0.0), r.setpoint_pa)
-            elif r.layer and "no차압" in r.layer.replace(" ", ""):
+            elif r.layer and "NO차압" in r.layer.replace(" ", "").upper():
                 nospec.add(k)
 
     out: list[dict] = []
@@ -115,8 +122,19 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
         ra, rb = view[a], view[b]
         if ra.pressure_pa is None or rb.pressure_pa is None:
             continue
-        # 압력 관리 대상이 아닌 공간(보관소·기계실 등)은 제외
-        if regime_of(a) == NEUTRAL or regime_of(b) == NEUTRAL:
+        # ★★**복도를 빼면 안 된다.** 여기서 봉쇄형 시설의 **핵심 구간을 통째로 버리고 있었다.**
+        #
+        #   `regime_of(복도) == NEUTRAL` 이라 `continue` 했다. 그런데 _regime.py 가 스스로
+        #   적어 뒀다 — *"※ 복도는 '중립'이 아니라 **기준면**이다."*
+        #
+        #   봉쇄형 시설(내용고형제)에서 차압이 설정되는 구간은 **대부분 복도 ↔ 작업실**이다.
+        #   그걸 다 빼면 PRES-002 는 **0건을 내고 "깨끗하다"고 말한다.**
+        #   (타정실 15Pa ↔ 복도 30Pa, 도면 설정 15Pa → 0건이 나왔다. 검증으로 잡았다)
+        #
+        #   RASE exception 도 "보관소·기계실 **등**"만 빼라고 적혀 있다. 복도가 아니다.
+        #   → 중립이되 **복도가 아닌 것**(보관소·기계실)만 뺀다.
+        if ((regime_of(a) == NEUTRAL and not is_corridor(view[a].name))
+                or (regime_of(b) == NEUTRAL and not is_corridor(view[b].name))):
             continue
         seen.add(key)
 
@@ -150,6 +168,11 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
             continue
         lo, hi = rng
         if lo <= d <= hi:
+            # ★범위 안이어도 **고시 참고치는 따로 봐야 한다.**
+            #   예전엔 여기서 `continue` 해버려 참고치 경고가 **범위 위반이 난 쌍에만**
+            #   따라붙었다 → 사내 기준 [5,10] 에 Δ7Pa 이면 참고치(10Pa) 미달 경고가
+            #   **영원히 안 났다.** 그리고 Δ3Pa 이면 major + minor **2건**이 한 원인으로 떴다.
+            out.extend(_statutory_note(a, b, d, same, statutory_min))
             continue
 
         kind = "동일 등급" if same else "등급 상이"
@@ -165,19 +188,28 @@ def evaluate(adj: list[AdjPair], rooms: list[RoomView], cfg: dict,
                          "근거": "발주처 사내 기준서(프로파일). 법정 수치 아님"},
         })
 
-        # 고시 참고치(무균 한정) 별도 경고 — 위반이 아니라 확인 요청
-        if (statutory_min is not None and not same and d < statutory_min):
-            out.append({
-                "severity": "minor",
-                "rooms": [a, b],
-                "message": (f"고시 참고치 미달(확인 필요): Δ{d:g}Pa < {statutory_min:g}Pa. "
-                            f"고시 별표1 제4호 하목은 '최소 10파스칼(참고치) 이상' — "
-                            f"오염관리전략(CCS)으로 타당성을 입증하면 달리 정할 수 있음"),
-                "evidence": {"room_a": a, "room_b": b, "delta_pa": d,
-                             "clause": "식약처고시 제2024-87호 별표1 제4호 하목",
-                             "note": "참고치(guidance value). hard fail 아님"},
-            })
+        out.extend(_statutory_note(a, b, d, same, statutory_min))
     return out
+
+
+def _statutory_note(a, b, d, same, statutory_min) -> list[dict]:
+    """고시 참고치(무균 한정) 경고 — **위반이 아니라 확인 요청**.
+
+    사내 기준 범위 **안**이어도 참고치 미달이면 알려야 한다. 예전엔 범위 위반이 난 쌍에만
+    따라붙어, 사내 기준을 지켰지만 고시 참고치엔 못 미치는 구간을 **영원히 놓쳤다.**
+    """
+    if statutory_min is None or same or d >= statutory_min:
+        return []
+    return [{
+        "severity": "minor",
+        "rooms": [a, b],
+        "message": (f"고시 참고치 미달(확인 필요): Δ{d:g}Pa < {statutory_min:g}Pa. "
+                    f"고시 별표1 제4호 하목은 '최소 10파스칼(참고치) 이상' — "
+                    f"오염관리전략(CCS)으로 타당성을 입증하면 달리 정할 수 있음"),
+        "evidence": {"room_a": a, "room_b": b, "delta_pa": d,
+                     "clause": "식약처고시 제2024-87호 별표1 제4호 하목",
+                     "note": "참고치(guidance value). hard fail 아님"},
+    }]
 
 
 def run(cur, run_id, facility_id, rule) -> list[dict]:

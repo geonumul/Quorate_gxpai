@@ -37,6 +37,19 @@ from ._model import (AdjPair, PressureRel, RoomView, load_adjacency,
 from ._regime import CONTAIN, HAZARD, is_corridor, resolve_regime
 
 
+def _contradicts(hi: RoomView, lo: RoomView) -> bool:
+    """화살표와 절대압력이 **서로 어긋나는가.**
+
+    ★근거가 둘인데 **어긋나면 판정하지 않는다.** 그게 우리 철칙이다.
+      PRES-004 의 이력이 증언한다 — *"화살표 vs 압력 모순 9건이 **전부 우리 버그**였다."*
+      그런 구간에서 PRES-003 이 critical 을 내면 **우리 버그를 위반으로 보고**하는 것이다.
+      → 모순은 PRES-004 가 "확인 필요"로 보고한다. PRES-003 은 **손을 뗀다.**
+    """
+    if hi.pressure_pa is None or lo.pressure_pa is None:
+        return False
+    return hi.pressure_pa < lo.pressure_pa    # 꼬리(고압)가 화살촉(저압)보다 낮다 = 모순
+
+
 def evaluate(rels: list[PressureRel], adj: list[AdjPair], rooms: list[RoomView],
              cfg: dict) -> list[dict]:
     overrides = cfg.get("regime_overrides", {}) or {}

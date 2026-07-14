@@ -136,24 +136,37 @@ def build(run_id: str) -> int:
 
         n = 0
         for pr_id, ex, ey, rot, hdeg in arrows:
+            guessed = False
             if hdeg is not None:
                 tail_id, head_id = associate_by_head(ex, ey, hdeg, rooms)
             else:
-                # 화살촉을 못 읽었다 → 옛 가정으로 폴백하되, 새 도면에선 이 경로가 안 탄다.
+                # ★★화살촉을 못 읽었다 → **추측한다. 그러나 확정으로 표시하지 않는다.**
+                #
+                #   예전엔 옛 가정(`associate_one`)으로 추측해 놓고 `approx=False`(확정)로
+                #   기록했다. 그 가정은 **참고도면에서 28개 중 9개를 거꾸로 읽게 한 바로 그것**이다.
+                #   PRES 규칙은 approx=false 만 판정하므로, **추측한 방향으로 위반/합격을 냈다.**
+                #
+                #   arrowgeom 모듈이 스스로 적어 뒀다 — *"그런 화살표는 판정 대상에서 빼야지,
+                #   추측해 채우면 안 된다."* 파이프라인이 그 원칙을 어기고 있었다.
+                #
+                #   → 추측값은 참고용으로만 두고 **approx=true** 로 표시한다. 규칙이 건너뛴다.
                 tail_id, head_id = associate_one(ex, ey, rot or 0.0, rooms)
+                guessed = True
             # ★S-1 확정(2026-07-13): 화살촉 = 저압 쪽, 꼬리 = 고압 쪽.
             #   예전엔 이 해석을 미뤄 room_high/room_low 를 NULL 로 뒀고,
             #   그 바람에 차압관계 98개가 있어도 **방 귀속 확정 0건**이라 PRES 규칙이 전부 죽었다.
             #   근거 4중 확인(모듈 docstring 참조). approx=false 로 표시해 규칙이 판정하게 한다.
             linked = head_id is not None and tail_id is not None
+            # ★추측한 방향(head_deg 를 못 읽음)은 **확정이 아니다.** approx=true.
+            approx = (not linked) or guessed
             cur.execute(
                 """UPDATE pressure_relation
                       SET room_head=%s, room_tail=%s,
                           room_high=%s, room_low=%s, approx=%s
                     WHERE id=%s""",
-                (head_id, tail_id, tail_id, head_id, not linked, pr_id),
+                (head_id, tail_id, tail_id, head_id, approx, pr_id),
             )
-            if head_id is not None and tail_id is not None:
+            if linked and not guessed:
                 n += 1
         conn.commit()
         return n
